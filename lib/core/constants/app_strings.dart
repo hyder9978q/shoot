@@ -1,0 +1,267 @@
+/// نصوص التطبيق — لهجة عراقية بسيطة وواضحة
+/// كل النصوص بمكان واحد حتى يسهل تعديلها لاحقاً
+class AppStrings {
+  AppStrings._();
+
+  static const String appName = 'شوت';
+  static const String slogan = 'شوت... واحجز ملعبك.';
+
+  // تسجيل الدخول
+  static const String loginTitle = 'هلا بيك بشوت 👋';
+  static const String loginSubtitle = 'دخّل رقم موبايلك ونرسلك رمز التحقق';
+  static const String phoneLabel = 'رقم الموبايل';
+  static const String phoneHint = '07XX XXX XXXX';
+  static const String phoneError = 'الرقم لازم يبدي بـ 07 ويكون 11 رقم';
+  static const String sendCode = 'دزلي الرمز';
+  static const String termsNote =
+      'بالدخول انت توافق على شروط الاستخدام وسياسة الخصوصية';
+  static const String versionLine = 'النسخة ١.٠ · العراق';
+  static const String otpSendError =
+      'ما گدرنا ندز الرمز 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+  static const String phoneAuthDisabled =
+      'تسجيل الدخول بالهاتف بعده مو مفعّل بإعدادات Firebase';
+  static const String tooManyRequests = 'محاولات هواي! انتظر شوية وجرّب بعدين';
+  static const String realSmsNeedsBilling =
+      'الرسائل الحقيقية بعدها مقفلة — استخدم رقم التجربة 07701234567';
+
+  // رمز التحقق
+  static const String otpTitle = 'دخّل رمز التحقق';
+  static const String otpSubtitle = 'دزينا رمز من 6 أرقام على الرقم:';
+  static const String otpError = 'الرمز غلط، جرّب مرة ثانية';
+  static const String otpDevHint = 'للتجربة هسه: الرمز هو 123456\n(بعدين يوصلك SMS حقيقي)';
+  static const String resendCode = 'ما وصلك؟ دزلي مرة ثانية';
+  static const String resendIn = 'إعادة الإرسال خلال';
+  static const String codeSentAgain = 'دزيناه من جديد ✅';
+  static const String confirm = 'تأكيد';
+  static const String changeNumber = 'غيّر الرقم';
+
+  // شاشة الاسم (أول تسجيل)
+  static const String nameTitle = 'شنو نسميك؟ 😊';
+  static const String nameSubtitle = 'اكتب اسمك أو لقبك حتى نناديك بيه';
+  static const String nameHint = 'اسمك';
+  static const String nameStart = 'يلا نبدي';
+  static const String nameSkip = 'بعدين';
+
+  // الرئيسية
+  /// تحية قصيرة فوق اسم المدينة برأس الصفحة
+  static const String homeHello = 'هلا بيك 👋';
+  static String homeHelloNamed(String name) => 'هلا بيك، $name 👋';
+
+  static const String allFieldsTitle = 'كل الملاعب';
+  static const String resultsTitle = 'نتائج البحث';
+  static const String fieldWord = 'ملعب';
+  static const String clearFilters = 'شيل الفلاتر';
+
+  // بانر اللعبة
+  static const String gameEyebrow = 'لعبة شوت';
+  static const String gameHeadline = 'جرّب حظك بضربات الترجيح';
+  static const String gameCta = 'العب هسه';
+
+  // الخريطة
+  static const String mapTitle = 'خريطة الملاعب';
+  static const String allIraq = 'كل العراق';
+  static const String viewAndBook = 'شوف واحجز';
+  static const String directionsLabel = 'الاتجاهات';
+
+  // قسم العب اليوم
+  static const String playTodayTitle = 'العب اليوم';
+  static const String playTodaySubtitle = 'أقرب وقت فاضي بكل ملعب';
+  static const String freeAtLabel = 'فاضي';
+  static const String searchHint = 'دوّر على ملعب أو منطقة...';
+  static const String allSports = 'الكل';
+  static const String noResults = 'ماكو ملاعب بهذا البحث 😕\nجرّب كلمة ثانية';
+  static const String perHour = 'للساعة';
+  static const String perHourShort = 'د.ع/س';
+  static const String reviewWord = 'تقييم';
+  static const String logout = 'تسجيل خروج';
+
+  // تفاصيل الملعب والحجز
+  static const String todaySlotsTitle = 'اختار اليوم والوقت';
+  static const String sendWhatsappConfirm = 'دز التأكيد على الواتساب';
+  static const String bookedLabel = 'محجوز';
+  static const String bookNow = 'احجز هسه';
+  static const String pickTimeFirst = 'اختار وقت أول';
+  static const String confirmBookingTitle = 'تأكيد الحجز';
+  static const String depositLabel = 'العربون';
+  static const String depositNote =
+      'الدفع الإلكتروني بعده ما مفعّل — العربون يتأكد بالملعب.\n(زين كاش والبطاقة تنضاف قريباً)';
+  static const String payDeposit = 'ادفع العربون';
+
+  // شاشة تأكيد الحجز والدفع
+  static const String bookingSummary = 'ملخص الحجز';
+  static const String fieldLabel = 'الملعب';
+  static const String dateTimeLabel = 'التاريخ والوقت';
+  static const String hourPriceLabel = 'السعر (ساعة)';
+  static const String depositNow = 'العربون المطلوب الآن';
+  static String restAtField(String rest) => 'الباقي ($rest) يُدفع بالملعب';
+  static const String payMethodTitle = 'طريقة الدفع';
+  static const String zainCash = 'زين كاش';
+  static const String zainCashHint = 'الأكثر استخداماً بالعراق';
+  static const String cardPay = 'بطاقة ماستر/فيزا';
+  static const String cardPayHint = 'أضف بطاقة جديدة';
+  static const String cancel = 'إلغاء';
+  static const String bookingSuccessTitle = 'تم الحجز ✅';
+  static String bookingSuccessSub(String field) =>
+      'حجزك بـ$field تم بنجاح.\nنشوفك بالملعب 🎉';
+  static const String bookingSuccessNote =
+      'راح يوصلك تأكيد واتساب من نفعّل الإشعارات.\nلا تنسى: الباقي كاش بالملعب.';
+  // الملف الشخصي — بطاقات الأرقام
+  static const String bookingWord = 'حجز';
+  static const String favoritesWord = 'مفضلة';
+  static const String reviewsWord = 'تقييم';
+  static const String newBadge = 'جديد';
+  static const String guestName = 'ضيف';
+
+  // تبويب حجوزاتي
+  static const String upcomingTab = 'القادمة';
+  static const String pastTab = 'السابقة';
+  static const String doneLabel = 'منتهي';
+  static const String detailsAction = 'التفاصيل';
+  static const String fieldNotFound = 'ما لكينا الملعب';
+  static const String noPastBookings = 'ماكو حجوزات سابقة';
+
+  static const String ticketTitle = 'تذكرة الحجز';
+  static const String ticketSportLabel = 'النوع';
+  static const String dateLabel = 'التاريخ';
+  static const String timeLabel = 'الوقت';
+  static const String paidDeposit = 'مدفوع (عربون)';
+  static const String backHome = 'ارجع للرئيسية';
+  static const String iqd = 'د.ع';
+  static const String slotTakenError =
+      'عذراً، هذا الوقت توه انحجز من شخص ثاني 😕 اختار وقت غيره';
+  static const String bookingError =
+      'ما گدرنا نسجّل الحجز 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+
+  // حجوزاتي
+  static const String myBookingsTitle = 'حجوزاتي';
+  static const String noBookingsTitle = 'بعدك ما عندك حجوزات';
+  static const String noBookingsMessage =
+      'من تحجز ملعب، حجزك راح يظهر هنا\nمع وقته وتفاصيله';
+  static const String confirmedLabel = 'مؤكد';
+  static const String todayLabel = 'اليوم';
+  static const String cancelBookingTitle = 'إلغاء الحجز';
+  static const String cancelBookingConfirm =
+      'متأكد تريد تلغي الحجز؟\nالوقت راح يرجع متاح للكل.';
+  static const String keepBooking = 'لا، خليه';
+  static const String yesCancel = 'إي، الغيه';
+  static const String bookingCancelled = 'انلغى الحجز ✅';
+  static const String bookingsLoadError =
+      'ما گدرنا نجيب حجوزاتك 😕 اسحب للأسفل للتحديث';
+
+  // ناقصنا لاعب
+  static const String playersTitle = 'ناقصنا لاعب';
+  static const String playersSubtitle =
+      'فريقك ناقص؟ انشر إعلان — أو انضم لفريق يدوّر لاعب';
+  static const String postRequest = 'انشر إعلان';
+  static const String noRequestsTitle = 'ماكو إعلانات اليوم';
+  static const String noRequestsMessage =
+      'كون أول واحد ينشر!\nفريقك ناقص لاعب؟ انشر إعلان وخلي اللاعبين يجونك';
+  static const String requestsLoadError =
+      'ما گدرنا نجيب الإعلانات 😕 اسحب للأسفل للتحديث';
+  static const String myRequestBadge = 'إعلانك';
+  static const String whatsappContact = 'واتساب';
+  static const String callContact = 'اتصال';
+  static const String whatsappMessage =
+      'هلا، شفت إعلانكم بتطبيق شوت — أريد ألعب وياكم ⚽';
+  static const String deleteRequestTitle = 'حذف الإعلان';
+  static const String deleteRequestConfirm =
+      'اكتمل فريقك؟ عاش!\nنحذف الإعلان حتى ما يتصلون بيك بعد.';
+  static const String keepRequest = 'لا، خليه';
+  static const String yesDelete = 'إي، احذفه';
+  static const String requestDeleted = 'انحذف الإعلان ✅';
+  static const String requestPosted = 'انتشر إعلانك ✅ من يتصلون بيك، رد عليهم!';
+  static const String requestPostError =
+      'ما گدرنا ننشر الإعلان 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+
+  // نموذج نشر الإعلان
+  static const String newRequestTitle = 'انشر إعلان — ناقصنا لاعب';
+  static const String sportLabel = 'شنو الرياضة؟';
+  static const String placeLabel = 'وين اللعبة؟';
+  static const String placeHint = 'مثال: ملعب النجوم — المنصور';
+  static const String placeError = 'اكتب مكان اللعبة';
+  static const String timeLabel2 = 'أي ساعة اليوم؟';
+  static const String timeError = 'اختار وقت اللعبة';
+  static const String playersNeededLabel = 'چم لاعب ناقصكم؟';
+  static const String playersUnit = 'لاعب';
+  static const String noteLabel = 'ملاحظة (اختياري)';
+  static const String noteHint = 'مثال: المستوى وسط، اللعبة ودّية';
+  static const String contactNote =
+      'رقمك راح يظهر بالإعلان حتى اللاعبين يتواصلون وياك';
+
+  // صفحة الملعب: الوصف والمرافق والتقييمات
+  static const String aboutFieldTitle = 'عن الملعب';
+  static const String amenitiesTitle = 'المرافق';
+  static const String reviewsTitle = 'التقييمات';
+  static const String rateField = 'قيّم الملعب';
+  static const String editMyReview = 'عدّل تقييمك';
+  static const String reviewCommentHint = 'شلون كانت تجربتك؟ (اختياري)';
+  static const String submitReview = 'انشر التقييم';
+  static const String reviewSaved = 'تم حفظ تقييمك ⭐ شكراً!';
+  static const String reviewError =
+      'ما گدرنا نحفظ التقييم 😕 جرّب مرة ثانية';
+  static const String noReviewsYet =
+      'بعد ماكو تقييمات — كن أول واحد يقيّم هذا الملعب!';
+  static const String myReviewsTitle = 'تقييماتي';
+  static const String noMyReviewsTitle = 'بعدك ما قيّمت أي ملعب';
+  static const String noMyReviewsMessage =
+      'من تلعب بملعب، ارجع لصفحته وقيّمه ⭐\nتقييمك يساعد اللاعبين الباقين';
+  static const String deleteReviewTitle = 'حذف التقييم';
+  static const String deleteReviewConfirm = 'متأكد تريد تحذف تقييمك؟';
+  static const String reviewDeleted = 'انحذف التقييم';
+
+  // المفضلة
+  static const String favoritesTitle = 'المفضلة';
+  static const String favoritesCountUnit = 'ملعب محفوظ';
+  static const String noFavoritesTitle = 'بعدك ماكو مفضلة';
+  static const String noFavoritesMessage =
+      'اضغط على القلب ❤️ بأي ملعب يعجبك\nحتى يظهر هنا ويصير حجزه أسرع';
+
+  // لوحة صاحب الملعب
+  static const String ownerDashboard = 'لوحة صاحب الملعب';
+  static const String ownerWelcome = 'مرحباً';
+  static String ownerFieldsCount(String count) => '$count ملاعب';
+  static const String todayEarnings = 'أرباح اليوم';
+  static const String todayBookings = 'حجوزات اليوم';
+  static String freeSlotsCount(String count) => '$count وقت فاضي';
+  static const String weekEarnings = 'أرباح الأسبوع';
+  static const String ownerTodayTitle = 'أوقات اليوم';
+  static const String bookingsCountLabel = 'حجز اليوم';
+  static const String depositsLabel = 'عرابين اليوم';
+  static const String freeLabel = 'فاضي';
+  static const String ownerHint =
+      'الأوقات الخضراء محجوزة ومدفوع عربونها.\nتريد تسد وقت لصيانة أو حجز خارجي؟ احجزه بنفسك من صفحة الملعب.';
+
+  // لعبة ضربات الترجيح
+  static const String gameTitle = 'ضربات الترجيح';
+  static const String gameBannerSubtitle =
+      'العب واجمع نقاط — وقريباً بدّلها بخصومات 🎁';
+  static const String gameHint = 'اضغط على مكان بالمرمى وسدد ⚽';
+  static const String gamePointsLabel = 'النقاط';
+  static const String goalCall = 'گوووول! ⚽';
+  static const String savedCall = 'صدّها الحارس! 🧤';
+  static const String missCall = 'برا الحديدة! 😅';
+  static const String gameOverTitle = 'خلصت الجولة!';
+  static const String goalsLabel = 'أهداف';
+  static const String bestStreakLabel = 'أحلى سلسلة';
+  static const String sessionBestLabel = 'أعلى نتيجة إلك';
+  static const String playAgain = 'العب مرة ثانية';
+  static const String exitGame = 'رجوع';
+  static const String rewardTeaser =
+      'قريباً: بدّل نقاطك بخصم حقيقي على حجز الملاعب 🎁';
+  static const String rating5 = 'خرافي! ما ينصد منك 🔥';
+  static const String rating4 = 'عاش الله بيك! 👏';
+  static const String rating3 = 'زين، بس تگدر أحسن 💪';
+  static const String rating2 = 'تدرب شوية وارجع ⚽';
+  static const String rating01 = 'الحارس گام يضحك 😅 جرّب مرة ثانية';
+
+  // تفاصيل الملعب — خانات المواصفات وشريط الحجز
+  static const String surfaceLabel = 'الأرضية';
+  static const String sizeLabel = 'الحجم';
+  static const String lightingValue = 'إنارة';
+  static const String startsFrom = 'يبدأ من';
+
+  // عام
+  static const String loading = 'لحظة...';
+  static const String retry = 'جرّب مرة ثانية';
+  static const String comingSoon = 'قريباً إن شاء الله';
+}

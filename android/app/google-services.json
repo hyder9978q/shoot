@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1054200799503",
+    "project_id": "shoot-iraq",
+    "storage_bucket": "shoot-iraq.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1054200799503:android:cf869bcf588ca7463a1e7a",
+        "android_client_info": {
+          "package_name": "com.shootapp.shoot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFXFmIJI9bkmlIybodmgS_zzoGv8hMtQQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

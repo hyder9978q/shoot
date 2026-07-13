@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // الملاعب: أي شخص يكدر يقراها، والإضافة/التعديل فقط من لوحة التحكم
+    match /fields/{fieldId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // الحجوزات:
+    // - القراءة لأي مستخدم مسجّل (حتى يشوف الأوقات المحجوزة بالملعب)
+    // - الإنشاء باسمه فقط، ومعرّف المستند fieldId_date_hour يمنع
+    //   الحجز المزدوج: الكتابة فوق حجز شخص ثاني = update مرفوض
+    // - التعديل والحذف لصاحب الحجز فقط
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ملف المستخدم (الاسم والمفضلة): صاحبه فقط يقرأ ويكتب
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // التقييمات: أي مسجّل يقراها، وصاحب التقييم فقط ينشر/يعدّل/يحذف
+    // معرّف المستند fieldId_userId يضمن تقييم واحد لكل مستخدم بالملعب
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && reviewId == request.resource.data.fieldId + '_' + request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // إعلانات "ناقصنا لاعب": أي مسجّل يقراها، وصاحب الإعلان فقط يعدّل أو يحذف
+    match /playerRequests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+  }
+}

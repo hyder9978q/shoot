@@ -1,0 +1,203 @@
+import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+
+import '../models/booking.dart';
+import '../models/field.dart';
+import '../utils/date_labels.dart';
+import 'fields_service.dart';
+
+/// الوقت اللي اختاره المستخدم توه انحجز من شخص ثاني
+class SlotTakenException implements Exception {
+  const SlotTakenException();
+}
+
+/// خدمة الحجوزات — تكتب وتقرأ من Firestore،
+/// وبوضع الاختبار (بدون Firebase) تشتغل على قائمة بالذاكرة.
+class BookingsService {
+  BookingsService._();
+
+  static final BookingsService instance = BookingsService._();
+
+  /// يزيد مع كل حجز/إلغاء — تبويب "حجوزاتي" يسمعه ويحدّث نفسه
+  final ValueNotifier<int> revision = ValueNotifier(0);
+
+  /// حجوزات وضع الاختبار (بدون Firebase)
+  final List<Booking> _mockBookings = [];
+
+  bool get _useMock => Firebase.apps.isEmpty;
+
+  String get _uid => _useMock
+      ? 'mock-user'
+      : FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  /// تاريخ اليوم بصيغة yyyy-MM-dd
+  static String todayDate() => DateLabels.dateFor(0);
+
+  /// أوقات ملعب معيّن بيوم معيّن مع حالة الحجز الحقيقية
+  Future<List<TimeSlot>> slotsFor(Field field, String date) async {
+    if (_useMock) {
+      // نمط تجريبي ثابت (اليوم فقط) + الحجوزات اللي انحجزت بنفس الجلسة
+      final isToday = date == todayDate();
+      return [
+        for (var h = field.openHour; h < field.closeHour; h++)
+          TimeSlot(
+            hour: h,
+            isBooked: (isToday && h % 3 == 0) ||
+                _mockBookings.any(
+                  (b) => b.fieldId == field.id && b.date == date && b.hour == h,
+                ),
+          ),
+      ];
+    }
+
+    Set<int> booked;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('fieldId', isEqualTo: field.id)
+          .where('date', isEqualTo: date)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      booked = {
+        for (final doc in snapshot.docs)
+          (doc.data()['hour'] as num?)?.toInt() ?? -1,
+      };
+    } catch (_) {
+      booked = {};
+    }
+
+    return [
+      for (var h = field.openHour; h < field.closeHour; h++)
+        TimeSlot(hour: h, isBooked: booked.contains(h)),
+    ];
+  }
+
+  /// الساعات المحجوزة اليوم لكل الملاعب دفعة وحدة (استعلام واحد)
+  /// — يستخدمها قسم "العب اليوم" بالرئيسية
+  Future<Map<String, Set<int>>> todayBookedHours(List<Field> fields) async {
+    final date = todayDate();
+
+    if (_useMock) {
+      return {
+        for (final f in fields)
+          f.id: {
+            for (var h = f.openHour; h < f.closeHour; h++)
+              if (h % 3 == 0 ||
+                  _mockBookings.any(
+                    (b) =>
+                        b.fieldId == f.id && b.date == date && b.hour == h,
+                  ))
+                h,
+          },
+      };
+    }
+
+    final map = <String, Set<int>>{};
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('date', isEqualTo: date)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final fieldId = (data['fieldId'] as String?) ?? '';
+        final hour = (data['hour'] as num?)?.toInt() ?? -1;
+        (map[fieldId] ??= {}).add(hour);
+      }
+    } catch (_) {
+      // بدون نت: نرجع خريطة فارغة — القسم يعرض كل الأوقات كفاضية
+    }
+    return map;
+  }
+
+  /// إنشاء حجز بيوم معيّن — يرمي [SlotTakenException] إذا الوقت انحجز قبل ثواني
+  Future<Booking> createBooking(
+    Field field,
+    TimeSlot slot, {
+    String? date,
+  }) async {
+    date ??= todayDate();
+    final booking = Booking(
+      id: '${field.id}_${date}_${slot.hour}',
+      userId: _uid,
+      fieldId: field.id,
+      fieldName: field.name,
+      area: field.area,
+      city: field.city,
+      sport: field.sport,
+      date: date,
+      hour: slot.hour,
+      deposit: FieldsService.depositAmount,
+    );
+
+    if (_useMock) {
+      final taken = _mockBookings.any(
+        (b) => b.id == booking.id && b.userId != _uid,
+      );
+      if (taken) throw const SlotTakenException();
+      _mockBookings.removeWhere((b) => b.id == booking.id);
+      _mockBookings.add(booking);
+      revision.value++;
+      return booking;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('bookings')
+          .doc(booking.id)
+          .set({
+        ...booking.toMap(),
+        'createdAt': FieldValue.serverTimestamp(),
+      }).timeout(const Duration(seconds: 15));
+    } on FirebaseException catch (e) {
+      // قواعد الحماية ترفض الكتابة فوق حجز شخص ثاني
+      if (e.code == 'permission-denied' || e.code == 'already-exists') {
+        throw const SlotTakenException();
+      }
+      rethrow;
+    }
+    revision.value++;
+    return booking;
+  }
+
+  /// حجوزاتي — الأحدث أولاً
+  Future<List<Booking>> myBookings() async {
+    if (_useMock) {
+      return _mockBookings.reversed.toList();
+    }
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('bookings')
+        .where('userId', isEqualTo: _uid)
+        .get()
+        .timeout(const Duration(seconds: 10));
+    final bookings = [
+      for (final doc in snapshot.docs) Booking.fromMap(doc.id, doc.data()),
+    ];
+    // ترتيب بالتاريخ ثم الساعة (الأحدث أولاً) — بدون فهرس مركّب
+    bookings.sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      return byDate != 0 ? byDate : b.hour.compareTo(a.hour);
+    });
+    return bookings;
+  }
+
+  /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين
+  Future<void> cancelBooking(Booking booking) async {
+    if (_useMock) {
+      _mockBookings.removeWhere((b) => b.id == booking.id);
+      revision.value++;
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('bookings')
+        .doc(booking.id)
+        .delete()
+        .timeout(const Duration(seconds: 15));
+    revision.value++;
+  }
+}

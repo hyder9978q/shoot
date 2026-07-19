@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/navigation/app_tabs.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/field_card.dart';
+import '../../../core/widgets/pressable.dart';
 
 /// شاشة المفضلة — الملاعب اللي حط عليها المستخدم قلب
 class FavoritesScreen extends StatelessWidget {
@@ -67,6 +69,23 @@ class FavoritesScreen extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             height: 1.7,
                           ),
+                    ),
+                    const SizedBox(height: 22),
+                    // زر إجراء: يرجّع للرئيسية حتى يتصفّح ويحب ملاعب
+                    Pressable(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context)
+                              .popUntil((route) => route.isFirst);
+                          AppTabs.go(AppTabs.home);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(0, 50),
+                          padding: const EdgeInsets.symmetric(horizontal: 26),
+                        ),
+                        icon: const Icon(Icons.search_rounded, size: 20),
+                        label: const Text(AppStrings.browseFields),
+                      ),
                     ),
                   ],
                 ),

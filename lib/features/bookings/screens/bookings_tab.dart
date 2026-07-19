@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/booking.dart';
+import '../../../core/navigation/app_tabs.dart';
 import '../../../core/services/bookings_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/fields_service.dart';
@@ -110,7 +111,7 @@ class _BookingsTabState extends State<BookingsTab> {
     final day = DateTime.tryParse(booking.date);
     if (day == null) return true;
     final end = DateTime(day.year, day.month, day.day, booking.hour + 1);
-    return end.isAfter(DateTime.now());
+    return end.isAfter(DateLabels.debugNow ?? DateTime.now());
   }
 
   @override
@@ -471,16 +472,31 @@ class _EmptyState extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
         ),
-        if (!error && !past) ...[
+        if (!error) ...[
           const SizedBox(height: 8),
           Text(
-            AppStrings.noBookingsMessage,
+            past ? AppStrings.noPastBookingsMessage : AppStrings.noBookingsMessage,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.grey,
                   fontWeight: FontWeight.w600,
                   height: 1.7,
                 ),
+          ),
+          const SizedBox(height: 22),
+          // زر إجراء: يودّي المستخدم لتبويب الرئيسية حتى يحجز
+          Center(
+            child: Pressable(
+              child: ElevatedButton.icon(
+                onPressed: () => AppTabs.go(AppTabs.home),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 50),
+                  padding: const EdgeInsets.symmetric(horizontal: 26),
+                ),
+                icon: const Icon(Icons.search_rounded, size: 20),
+                label: const Text(AppStrings.browseFields),
+              ),
+            ),
           ),
         ],
       ],

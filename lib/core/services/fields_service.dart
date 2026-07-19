@@ -1,7 +1,21 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/field.dart';
+import '../utils/input_sanitizer.dart';
+
+/// ملف مرفوض عند الرفع — مو صورة أو حجمه أكبر من المسموح
+class InvalidImageException implements Exception {
+  const InvalidImageException({required this.tooLarge});
+
+  /// true = الحجم أكبر من الحد، false = نوع الملف مو صورة مقبولة
+  final bool tooLarge;
+}
 
 /// خدمة الملاعب — تقرأ من Firestore، ومع أي خلل (لا نت / لا Firebase)
 /// ترجع للبيانات التجريبية حتى يبقى التطبيق شغال.
@@ -162,8 +176,9 @@ class FieldsService {
   }
 
   /// بحث وفلترة على آخر قائمة محمّلة (فوري، بدون انتظار الشبكة)
+  /// نص البحث ينظّف من أي رموز خطيرة قبل ما يُستخدم
   List<Field> search({String query = '', Sport? sport, String? city}) {
-    final q = query.trim();
+    final q = InputSanitizer.clean(query, maxLength: 50);
     return (_cache ?? _mockFields).where((f) {
       final matchesSport = sport == null || f.sport == sport;
       final matchesCity = city == null || f.city == city;
@@ -185,4 +200,112 @@ class FieldsService {
 
   /// قيمة العربون الثابتة (دينار عراقي) — تنسحب من الإعدادات لاحقاً
   static const int depositAmount = 5000;
+
+  /// هل رفع الصور متاح؟ يحتاج Firebase مفعّل (مو وضع التجربة المحلي)
+  static bool get canUploadPhotos => Firebase.apps.isNotEmpty;
+
+  /// فحص الملكية: ما نسمح بأي تعديل على ملعب مو تابع للمستخدم الحالي.
+  /// (قواعد Firestore/Storage تمنعه من السيرفر — وهذا خط دفاع بالتطبيق)
+  void _assertOwner(Field field) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || field.ownerId != uid) {
+      throw StateError('غير مخوّل: هذا الملعب مو تابع لحسابك');
+    }
+  }
+
+  /// يبدّل الملعب بالذاكرة بنسخة محدّثة حتى تنعكس الصور بكل الشاشات فوراً
+  void _replaceInCache(Field updated) {
+    final list = _cache;
+    if (list == null) return;
+    final i = list.indexWhere((f) => f.id == updated.id);
+    if (i != -1) list[i] = updated;
+  }
+
+  /// الحد الأقصى لحجم الصورة الواحدة: ٥ ميغابايت
+  static const int maxPhotoBytes = 5 * 1024 * 1024;
+
+  /// أنواع الصور المقبولة فقط — أي امتداد ثاني يُرفض
+  static const Map<String, String> _allowedImageTypes = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'webp': 'image/webp',
+  };
+
+  /// يتحقق من الملف على مستوى التطبيق قبل الرفع:
+  /// امتداد صورة مقبول + حجم ≤ ٥ ميغا. يرجّع (الامتداد، البايتات).
+  static Future<(String, Uint8List)> _validateImage(XFile file) async {
+    final dot = file.name.lastIndexOf('.');
+    final ext = dot == -1 ? '' : file.name.substring(dot + 1).toLowerCase();
+    if (!_allowedImageTypes.containsKey(ext)) {
+      throw const InvalidImageException(tooLarge: false);
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.length > maxPhotoBytes) {
+      throw const InvalidImageException(tooLarge: true);
+    }
+    return (ext, bytes);
+  }
+
+  /// يرفع صوراً جديدة للملعب على Firebase Storage ويحفظ روابطها بـ Firestore.
+  /// يرجّع الملعب بنسخته المحدّثة (بكل الصور). يرمي استثناء عند الفشل.
+  Future<Field> addFieldPhotos(Field field, List<XFile> files) async {
+    if (!canUploadPhotos) {
+      throw StateError('رفع الصور يحتاج التطبيق المنشور (مو وضع التجربة)');
+    }
+    _assertOwner(field);
+    if (files.isEmpty) return field;
+
+    // نتحقق من كل الملفات قبل ما نرفع أي واحد — يا كلها صالحة يا ولا وحدة
+    final validated = [for (final file in files) await _validateImage(file)];
+
+    final storage = FirebaseStorage.instance;
+    final newUrls = <String>[];
+    for (final (ext, bytes) in validated) {
+      final stamp = DateTime.now().microsecondsSinceEpoch;
+      final ref = storage.ref('field_photos/${field.id}/$stamp.$ext');
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: _allowedImageTypes[ext]),
+      );
+      newUrls.add(await ref.getDownloadURL());
+    }
+
+    final updatedUrls = [...field.imageUrls, ...newUrls];
+    await FirebaseFirestore.instance
+        .collection('fields')
+        .doc(field.id)
+        .set({'imageUrls': updatedUrls}, SetOptions(merge: true));
+
+    final updated = field.copyWith(imageUrls: updatedUrls);
+    _replaceInCache(updated);
+    return updated;
+  }
+
+  /// يحذف صورة من الملعب — من Firestore ومن Storage.
+  /// يرجّع الملعب بنسخته المحدّثة. يرمي استثناء عند الفشل.
+  Future<Field> removeFieldPhoto(Field field, String url) async {
+    if (!canUploadPhotos) {
+      throw StateError('حذف الصور يحتاج التطبيق المنشور (مو وضع التجربة)');
+    }
+    _assertOwner(field);
+
+    final updatedUrls = [
+      for (final u in field.imageUrls)
+        if (u != url) u,
+    ];
+    await FirebaseFirestore.instance
+        .collection('fields')
+        .doc(field.id)
+        .set({'imageUrls': updatedUrls}, SetOptions(merge: true));
+
+    // حذف الملف نفسه — لو فشل (رابط قديم مثلاً) ما نكسر العملية
+    try {
+      await FirebaseStorage.instance.refFromURL(url).delete();
+    } catch (_) {}
+
+    final updated = field.copyWith(imageUrls: updatedUrls);
+    _replaceInCache(updated);
+    return updated;
+  }
 }

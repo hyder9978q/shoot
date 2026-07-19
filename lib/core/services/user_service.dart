@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../theme/theme_controller.dart';
+import '../utils/input_sanitizer.dart';
+import 'local_store.dart';
 
 /// ملف المستخدم — الاسم والمفضلة، ينخزن بمستند users/{uid}
 /// وبوضع الاختبار (بدون Firebase) يشتغل بالذاكرة.
@@ -36,10 +38,17 @@ class UserService {
   List<String> get favoriteIds => _favorites.toList();
 
   /// تحميل الملف مرة وحدة بعد تسجيل الدخول
+  ///
+  /// الوضع الليلي ما ينقرأ من هنا: تفضيل الثيم محلي فقط
+  /// (ينحمّل بالإقلاع من [ThemeController.loadSaved]) حتى ما يطلع
+  /// الدارك بالغلط من بيانات قديمة بالسيرفر.
   Future<void> load() async {
     if (_loaded) return;
     if (_useMock) {
+      // بالوضع التجريبي: الاسم محفوظ محلياً حتى الجلسة تثبت بعد إعادة الفتح
+      _name = await LocalStore.userName;
       _loaded = true;
+      revision.value++;
       return;
     }
     try {
@@ -51,44 +60,54 @@ class UserService {
         ..addAll(
           ((data?['favoriteFieldIds'] as List?) ?? const []).cast<String>(),
         );
-      // تفضيل الوضع الليلي المحفوظ
-      ThemeController.instance.setDark(
-        (data?['themeDark'] as bool?) ?? false,
-      );
-      revision.value++;
     } catch (_) {
-      // بدون نت: نكمل بدون ملف — التطبيق يشتغل طبيعي
+      // بدون نت: نرجع للاسم المحفوظ محلياً — التطبيق يشتغل طبيعي
+      if (_name.isEmpty) _name = await LocalStore.userName;
     }
     _loaded = true;
+    revision.value++;
   }
+
+  /// حفظ اسم جاري؟ — ما نكتب مرتين بنفس الوقت
+  bool _savingName = false;
 
   Future<void> saveName(String name) async {
-    _name = name.trim();
+    if (_savingName) return;
+    // تنظيف الاسم: بدون رموز خطيرة وبحد أقصى ٥٠ حرف
+    _name = InputSanitizer.clean(
+      name,
+      maxLength: InputSanitizer.nameMaxLength,
+    );
     revision.value++;
+    // نسخة محلية من الاسم حتى الدخول المثبّت محلياً يفوت مباشرة
+    await LocalStore.setUserName(_name);
     if (_useMock) return;
 
-    await _doc.set({
-      'name': _name,
-      'phone': FirebaseAuth.instance.currentUser?.phoneNumber ?? '',
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true)).timeout(const Duration(seconds: 15));
-  }
-
-  /// حفظ تفضيل الوضع الليلي (يطبقه فوراً ويخزنه بالملف)
-  Future<void> saveThemeDark(bool dark) async {
-    ThemeController.instance.setDark(dark);
-    if (_useMock) return;
+    _savingName = true;
     try {
-      await _doc.set({'themeDark': dark}, SetOptions(merge: true)).timeout(
-            const Duration(seconds: 15),
-          );
-    } catch (_) {
-      // فشل الحفظ ما يلغي التبديل المحلي
+      await _doc.set({
+        'name': _name,
+        'phone': FirebaseAuth.instance.currentUser?.phoneNumber ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 15));
+    } finally {
+      _savingName = false;
     }
   }
+
+  /// حفظ تفضيل الوضع الليلي — يطبقه فوراً ويخزنه محلياً فقط
+  /// (اختيار المستخدم هو المصدر الوحيد، ما نتبع النظام ولا السيرفر)
+  Future<void> saveThemeDark(bool dark) async {
+    await ThemeController.instance.saveDark(dark);
+  }
+
+  /// تبديلات مفضلة جارية (بمعرّف الملعب) — الضغط المتكرر السريع
+  /// ما يرسل كتابتين متسابقتين على نفس الملعب
+  final Set<String> _togglingFavorites = {};
 
   /// إضافة/إزالة ملعب من المفضلة — تحديث متفائل مع تراجع عند الفشل
   Future<void> toggleFavorite(String fieldId) async {
+    if (!_useMock && !_togglingFavorites.add(fieldId)) return;
     final adding = !_favorites.contains(fieldId);
     adding ? _favorites.add(fieldId) : _favorites.remove(fieldId);
     revision.value++;
@@ -104,6 +123,8 @@ class UserService {
       // فشل الحفظ: نرجّع الحالة مثل ما كانت
       adding ? _favorites.remove(fieldId) : _favorites.add(fieldId);
       revision.value++;
+    } finally {
+      _togglingFavorites.remove(fieldId);
     }
   }
 
@@ -112,6 +133,7 @@ class UserService {
     _name = '';
     _favorites.clear();
     _loaded = false;
+    LocalStore.setUserName('');
     revision.value++;
   }
 }

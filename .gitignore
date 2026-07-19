@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+.vercel
+
+# مفاتيح وبيانات Google — ما تنحفظ بالمستودع
+# (ترخيص Google ما يسمح بتخزين محتوى الأماكن أكثر من ٣٠ يوم)
+serviceAccount*.json
+tool/places.json
+tool/node_modules/
+tool/places.progress.json

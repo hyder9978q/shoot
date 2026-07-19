@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../features/fields/screens/field_details_screen.dart';
 import '../constants/app_strings.dart';
@@ -30,6 +31,7 @@ class FieldCard extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
+              HapticFeedback.selectionClick();
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => FieldDetailsScreen(field: field),
@@ -47,6 +49,19 @@ class FieldCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       FieldImage(field: field),
+                      // تدرّج غامق خفيف أسفل الصورة — يخلي الشارات والحافة
+                      // واضحين فوق أي صورة مهما كانت فاتحة
+                      const IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.center,
+                              colors: [Color(0x40000000), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                      ),
                       PositionedDirectional(
                         top: 10,
                         start: 10,
@@ -162,6 +177,18 @@ class PriceText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // أماكن مسحوبة من الخرائط بعدها ما مسجلة عدنا — ما عدها سعر، ننصح بالاتصال
+    if (price <= 0) {
+      return Text(
+        AppStrings.priceOnCall,
+        style: TextStyle(
+          fontSize: size * 0.85,
+          fontWeight: FontWeight.w700,
+          color: AppColors.muted,
+        ),
+      );
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.baseline,

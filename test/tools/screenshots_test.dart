@@ -5,6 +5,7 @@ import 'package:shoot/core/models/field.dart';
 import 'package:shoot/core/services/fields_service.dart';
 import 'package:shoot/core/theme/app_theme.dart';
 import 'package:shoot/core/theme/theme_controller.dart';
+import 'package:shoot/core/utils/date_labels.dart';
 import 'package:shoot/features/home/widgets/play_now_section.dart';
 import 'package:shoot/features/auth/screens/login_screen.dart';
 import 'package:shoot/features/auth/screens/name_screen.dart';
@@ -22,6 +23,10 @@ import 'package:shoot/features/splash/splash_screen.dart';
 /// التحديث:
 ///   flutter test test/tools/screenshots_test.dart --update-goldens
 void main() {
+  // نثبت التاريخ حتى ما تتغير تواريخ شريط الأيام باللقطات كل يوم
+  setUp(() => DateLabels.debugNow = DateTime(2026, 7, 15));
+  tearDown(() => DateLabels.debugNow = null);
+
   Widget app(Widget home) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,

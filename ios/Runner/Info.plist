@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>يحتاج شوت الوصول لصورك حتى ترفع صور ملعبك.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>يحتاج شوت الكاميرا حتى تصوّر ملعبك مباشرة.</string>
 </dict>
 </plist>

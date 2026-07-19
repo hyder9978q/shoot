@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/services/user_service.dart';
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../../core/widgets/shoot_logo.dart';
@@ -129,7 +130,8 @@ class _NameScreenState extends State<NameScreen> {
                             controller: _nameController,
                             focusNode: _focus,
                             textInputAction: TextInputAction.done,
-                            maxLength: 30,
+                            maxLength: InputSanitizer.nameMaxLength,
+                            inputFormatters: [InputSanitizer.deny()],
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,

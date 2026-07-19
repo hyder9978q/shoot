@@ -5,6 +5,7 @@ import '../../../core/models/field.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/widgets/field_card.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../game/screens/game_screen.dart';
@@ -79,26 +80,29 @@ class _HomeTabState extends State<HomeTab>
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              // بلاطات الرياضات
+              // بلاطات الرياضات — تمرير أفقي، الأنواع أكثر من عرض الشاشة
               Padding(
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _SportTile(
-                      label: AppStrings.allSports,
-                      icon: Icons.apps_rounded,
-                      selected: _selectedSport == null,
-                      onTap: () => setState(() => _selectedSport = null),
-                    ),
-                    for (final sport in Sport.values)
+                padding: const EdgeInsets.only(top: 22, bottom: 4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Row(
+                    children: [
                       _SportTile(
-                        label: sport.label,
-                        icon: sport.icon,
-                        selected: _selectedSport == sport,
-                        onTap: () => setState(() => _selectedSport = sport),
+                        label: AppStrings.allSports,
+                        icon: Icons.apps_rounded,
+                        selected: _selectedSport == null,
+                        onTap: () => setState(() => _selectedSport = null),
                       ),
-                  ],
+                      for (final sport in Sport.values)
+                        _SportTile(
+                          label: sport.label,
+                          icon: sport.icon,
+                          selected: _selectedSport == sport,
+                          onTap: () => setState(() => _selectedSport = sport),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               // بانر اللعبة — غامق بلمسة صفراء
@@ -367,6 +371,9 @@ class _Header extends StatelessWidget {
                     Expanded(
                       child: TextField(
                         controller: searchController,
+                        // ما نسمح بأي رمز خطير (كود / SQL) بخانة البحث
+                        inputFormatters: [InputSanitizer.deny()],
+                        maxLength: 50,
                         onChanged: (_) => onSearchChanged(),
                         style: TextStyle(
                           fontSize: 14.5,
@@ -380,6 +387,7 @@ class _Header extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             color: AppColors.muted,
                           ),
+                          counterText: '',
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -419,7 +427,10 @@ class _SportTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Pressable(
       onTap: onTap,
-      child: Column(
+      child: Container(
+        width: 70,
+        margin: const EdgeInsetsDirectional.only(end: 12),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
@@ -451,15 +462,21 @@ class _SportTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: selected ? AppColors.dark : AppColors.grey,
+          // الأسماء الطويلة (نادي رياضي) تصغّر بدل ما تنقص أو تفيض
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: selected ? AppColors.dark : AppColors.grey,
+              ),
             ),
           ),
         ],
+        ),
       ),
     );
   }

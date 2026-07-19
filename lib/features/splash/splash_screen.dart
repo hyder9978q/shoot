@@ -1,9 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/services/local_store.dart';
+import '../../core/services/user_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/shoot_logo.dart';
 import '../auth/screens/login_screen.dart';
+import '../auth/screens/name_screen.dart';
+import '../shell/main_shell.dart';
 
 /// شاشة البداية — هوية غارقة بالأخضر مع دخول ناعم
 class SplashScreen extends StatefulWidget {
@@ -32,17 +38,49 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    Future.delayed(const Duration(milliseconds: 2500), _goNext);
+  }
+
+  /// بوابة الجلسة: مسجّل دخول → التطبيق، غير مسجّل → شاشة الدخول فقط
+  Future<void> _goNext() async {
+    if (!mounted) return;
+
+    final hasFirebase = Firebase.apps.isNotEmpty;
+    var user = hasFirebase ? FirebaseAuth.instance.currentUser : null;
+    if (hasFirebase && user == null) {
+      // بعد التحديث (خصوصاً على الويب) استرجاع الجلسة ياخذ لحظة —
+      // ننتظر أول إشعار حالة بدل ما نحكم من currentUser الفوري
+      try {
+        user = await FirebaseAuth.instance
+            .authStateChanges()
+            .first
+            .timeout(const Duration(seconds: 3));
+      } catch (_) {
+        // ما وصل إشعار بالوقت المحدد — نكمل بالجلسة المحلية
+      }
+    }
+    // الجلسة المحلية تغطي الدخول التجريبي (رمز 123456) بدون مستخدم Firebase
+    final signedIn = user != null || await LocalStore.signedIn;
+    if (!mounted) return;
+
+    Widget next = const LoginScreen();
+    if (signedIn) {
+      // جلسة سارية: نحمّل الملف ونفوّته — إذا ما كمّل اسمه نسأله
+      await UserService.instance.load();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 250),
-          pageBuilder: (_, _, _) => const LoginScreen(),
-          transitionsBuilder: (_, animation, _, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
-    });
+      next = UserService.instance.name.isEmpty
+          ? const NameScreen()
+          : const MainShell();
+    }
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (_, _, _) => next,
+        transitionsBuilder: (_, animation, _, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   @override

@@ -4,6 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/models/field.dart';
 import '../../../core/services/player_requests_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/widgets/pressable.dart';
 
 /// نموذج نشر إعلان "ناقصنا لاعب"
@@ -130,7 +131,8 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final sport in Sport.values)
+              // بس الرياضات الجماعية — ما ننطلب لاعبين لمسبح أو نادي رياضي
+              for (final sport in Sport.values.where((s) => s.isTeamSport))
                 _ChoiceChip(
                   label: sport.label,
                   icon: sport.icon,
@@ -147,7 +149,10 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
           TextField(
             controller: _placeController,
             textInputAction: TextInputAction.next,
+            maxLength: 50,
+            inputFormatters: [InputSanitizer.deny()],
             decoration: InputDecoration(
+              counterText: '',
               hintText: AppStrings.placeHint,
               errorText: _placeError,
               prefixIcon: Icon(
@@ -237,6 +242,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
             controller: _noteController,
             maxLines: 2,
             maxLength: 100,
+            inputFormatters: [InputSanitizer.deny()],
             decoration: const InputDecoration(
               hintText: AppStrings.noteHint,
               counterText: '',

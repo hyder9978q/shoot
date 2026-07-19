@@ -10,6 +10,7 @@ import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
+import 'field_photos_screen.dart';
 
 /// لوحة صاحب الملعب — أرباح اليوم والأسبوع + أوقات اليوم (شاشة ١١ بالتصميم)
 class OwnerDashboardScreen extends StatefulWidget {
@@ -23,6 +24,9 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
+  /// نسخة قابلة للتحديث من ملاعب المالك — تتغير لما يرفع/يحذف صور
+  late final List<Field> _fields = List.of(widget.fields);
+
   /// أوقات اليوم لكل ملعب — null = بعدها تتحمل
   Map<String, List<TimeSlot>>? _slotsByField;
 
@@ -44,7 +48,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Future<void> _load() async {
     final result = <String, List<TimeSlot>>{};
-    for (final field in widget.fields) {
+    for (final field in _fields) {
       try {
         result[field.id] = await BookingsService.instance
             .slotsFor(field, BookingsService.todayDate());
@@ -58,7 +62,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     for (var i = 6; i >= 0; i--) {
       final date = DateLabels.dateFor(-i);
       var booked = 0;
-      for (final field in widget.fields) {
+      for (final field in _fields) {
         try {
           final slots = await BookingsService.instance.slotsFor(field, date);
           booked += slots.where((s) => s.isBooked).length;
@@ -104,10 +108,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final slotsByField = _slotsByField;
     final deposit = FieldsService.depositAmount;
     final weekTotal = _weekBookings.fold(0, (a, b) => a + b) * deposit;
-    final headerName = widget.fields.length == 1
-        ? widget.fields.first.name
+    final headerName = _fields.length == 1
+        ? _fields.first.name
         : AppStrings.ownerFieldsCount(
-            ArabicNum.count(widget.fields.length),
+            ArabicNum.count(_fields.length),
           );
 
     return Scaffold(
@@ -335,12 +339,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ),
               )
             else
-              for (final field in widget.fields)
+              for (final (i, field) in _fields.indexed)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
                   child: _OwnerFieldCard(
                     field: field,
                     slots: slotsByField[field.id] ?? const [],
+                    onFieldChanged: (updated) =>
+                        setState(() => _fields[i] = updated),
                   ),
                 ),
             // تلميح: سد الأوقات يصير بالحجز العادي
@@ -444,10 +450,26 @@ class _WeekChart extends StatelessWidget {
 }
 
 class _OwnerFieldCard extends StatelessWidget {
-  const _OwnerFieldCard({required this.field, required this.slots});
+  const _OwnerFieldCard({
+    required this.field,
+    required this.slots,
+    required this.onFieldChanged,
+  });
 
   final Field field;
   final List<TimeSlot> slots;
+  final ValueChanged<Field> onFieldChanged;
+
+  void _openPhotos(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FieldPhotosScreen(
+          field: field,
+          onChanged: onFieldChanged,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +495,19 @@ class _OwnerFieldCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 FieldImage(field: field),
-                Container(color: Colors.black.withValues(alpha: 0.18)),
+                // تدرّج غامق من الأسفل — الاسم يبقى واضح فوق أي صورة
+                const IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [Color(0xB3000000), Colors.transparent],
+                        stops: [0, 0.75],
+                      ),
+                    ),
+                  ),
+                ),
                 PositionedDirectional(
                   start: 14,
                   bottom: 10,
@@ -483,6 +517,43 @@ class _OwnerFieldCard extends StatelessWidget {
                       color: AppColors.white,
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
+                    ),
+                  ),
+                ),
+                // زر إدارة صور الملعب
+                PositionedDirectional(
+                  end: 10,
+                  top: 10,
+                  child: Pressable(
+                    onTap: () => _openPhotos(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add_a_photo_rounded,
+                            size: 15,
+                            color: AppColors.primaryDeep,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            AppStrings.managePhotosAction,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.inkFixed,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -14,9 +16,15 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    if (kIsWeb) {
+      // على الويب: نثبّت الجلسة بالمتصفح حتى ما تضيع بعد التحديث/الإغلاق
+      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    }
   } catch (_) {
     // إذا فشل الاتصال بـ Firebase، التطبيق يكمل بالوضع التجريبي
   }
+  // الوضع الفاتح افتراضي مضمون — الليلي فقط إذا المستخدم مختاره سابقاً
+  await ThemeController.instance.loadSaved();
   runApp(const ShootApp());
 }
 
@@ -34,6 +42,8 @@ class ShootApp extends StatelessWidget {
         title: AppStrings.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+        // ما نتبع وضع النظام: الثيم يتحكم بيه المستخدم فقط
+        themeMode: ThemeMode.light,
         // اللغة العربية + الكتابة من اليمين لليسار
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar'), Locale('en')],

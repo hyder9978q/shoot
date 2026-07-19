@@ -3,11 +3,15 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// إعداد الاختبارات — يحمّل خط Cairo وأيقونات Material
 /// حتى تطلع لقطات الشاشة (goldens) بنصوص وأيقونات حقيقية.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // خزن محلي وهمي فارغ — بدونه نداءات shared_preferences تعلّق بالاختبارات
+  SharedPreferences.setMockInitialValues({});
 
   final cairo = FontLoader('Cairo');
   for (final weight in ['Regular', 'SemiBold', 'Bold', 'ExtraBold']) {

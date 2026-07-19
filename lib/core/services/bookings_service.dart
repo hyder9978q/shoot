@@ -113,8 +113,28 @@ class BookingsService {
     return map;
   }
 
+  /// عملية إنشاء جارية — أي نداء ثاني بنفس الوقت يرجع نفس النتيجة
+  /// بدل ما يكتب مرتين على Firestore
+  Future<Booking>? _pendingCreate;
+
+  /// إلغاءات جارية (بمعرّف الحجز) — منع الحذف المزدوج
+  final Set<String> _cancelling = {};
+
   /// إنشاء حجز بيوم معيّن — يرمي [SlotTakenException] إذا الوقت انحجز قبل ثواني
   Future<Booking> createBooking(
+    Field field,
+    TimeSlot slot, {
+    String? date,
+  }) {
+    final pending = _pendingCreate;
+    if (pending != null) return pending;
+    final future = _createBooking(field, slot, date: date)
+        .whenComplete(() => _pendingCreate = null);
+    _pendingCreate = future;
+    return future;
+  }
+
+  Future<Booking> _createBooking(
     Field field,
     TimeSlot slot, {
     String? date,
@@ -187,17 +207,23 @@ class BookingsService {
 
   /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين
   Future<void> cancelBooking(Booking booking) async {
-    if (_useMock) {
-      _mockBookings.removeWhere((b) => b.id == booking.id);
-      revision.value++;
-      return;
-    }
+    // إلغاء نفس الحجز جاري؟ ما نكرر العملية
+    if (!_cancelling.add(booking.id)) return;
+    try {
+      if (_useMock) {
+        _mockBookings.removeWhere((b) => b.id == booking.id);
+        revision.value++;
+        return;
+      }
 
-    await FirebaseFirestore.instance
-        .collection('bookings')
-        .doc(booking.id)
-        .delete()
-        .timeout(const Duration(seconds: 15));
-    revision.value++;
+      await FirebaseFirestore.instance
+          .collection('bookings')
+          .doc(booking.id)
+          .delete()
+          .timeout(const Duration(seconds: 15));
+      revision.value++;
+    } finally {
+      _cancelling.remove(booking.id);
+    }
   }
 }

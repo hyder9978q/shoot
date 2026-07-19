@@ -2,6 +2,9 @@
 class DateLabels {
   DateLabels._();
 
+  /// للاختبارات: تثبيت "الآن" حتى ما تتغير التواريخ بين تشغيلة وأخرى
+  static DateTime? debugNow;
+
   /// أيام الأسبوع حسب DateTime.weekday (1 = الاثنين)
   static const List<String> weekdays = [
     'الاثنين',
@@ -15,7 +18,7 @@ class DateLabels {
 
   /// تاريخ بصيغة yyyy-MM-dd بعد [daysFromNow] يوم من اليوم
   static String dateFor(int daysFromNow) {
-    final d = DateTime.now().add(Duration(days: daysFromNow));
+    final d = (debugNow ?? DateTime.now()).add(Duration(days: daysFromNow));
     final m = d.month.toString().padLeft(2, '0');
     final day = d.day.toString().padLeft(2, '0');
     return '${d.year}-$m-$day';

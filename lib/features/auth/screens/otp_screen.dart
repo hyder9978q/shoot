@@ -28,7 +28,10 @@ class _OtpScreenState extends State<OtpScreen> {
   String? _errorText;
   bool _verifying = false;
   Timer? _resendTimer;
-  int _resendSeconds = 30;
+
+  /// إعادة الإرسال ما تشتغل إلا بعد ٦٠ ثانية
+  static const int _resendCooldown = 60;
+  int _resendSeconds = _resendCooldown;
 
   @override
   void initState() {
@@ -47,7 +50,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _startResendTimer() {
     _resendTimer?.cancel();
-    setState(() => _resendSeconds = 30);
+    setState(() => _resendSeconds = _resendCooldown);
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_resendSeconds <= 1) {
         timer.cancel();
@@ -71,6 +74,8 @@ class _OtpScreenState extends State<OtpScreen> {
     if (!mounted) return;
     setState(() => _verifying = false);
     if (ok) {
+      // الرمز خلص شغله — نمسحه من الذاكرة فوراً
+      _codeController.clear();
       // نحمّل ملف المستخدم: إذا ما عنده اسم (أول مرة) نسأله
       await UserService.instance.load();
       if (!mounted) return;

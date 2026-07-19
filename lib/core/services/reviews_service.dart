@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/field.dart';
 import '../models/review.dart';
+import '../utils/input_sanitizer.dart';
 import 'user_service.dart';
 
 /// خدمة التقييمات — تقرأ وتكتب بمجموعة reviews،
@@ -90,8 +91,28 @@ class ReviewsService {
     return reviews;
   }
 
+  /// نشر جاري؟ — ضغطة مكررة ما تكتب مرتين
+  bool _submitting = false;
+
+  /// حذف جاري (بمعرّف التقييم)
+  final Set<String> _deleting = {};
+
   /// نشر أو تعديل تقييمي لملعب (تقييم واحد لكل مستخدم بالملعب)
   Future<void> submitReview(
+    Field field, {
+    required int rating,
+    String comment = '',
+  }) async {
+    if (_submitting) return;
+    _submitting = true;
+    try {
+      await _submitReview(field, rating: rating, comment: comment);
+    } finally {
+      _submitting = false;
+    }
+  }
+
+  Future<void> _submitReview(
     Field field, {
     required int rating,
     String comment = '',
@@ -103,8 +124,8 @@ class ReviewsService {
       fieldName: field.name,
       userId: _uid,
       userName: name.isEmpty ? 'لاعب' : name,
-      rating: rating,
-      comment: comment.trim(),
+      rating: rating.clamp(1, 5),
+      comment: InputSanitizer.clean(comment, maxLength: 200),
       createdAtMs: DateTime.now().millisecondsSinceEpoch,
     );
 
@@ -124,17 +145,22 @@ class ReviewsService {
 
   /// حذف تقييمي
   Future<void> deleteReview(Review review) async {
-    if (_useMock) {
-      _mockReviews.removeWhere((r) => r.id == review.id);
-      revision.value++;
-      return;
-    }
+    if (!_deleting.add(review.id)) return;
+    try {
+      if (_useMock) {
+        _mockReviews.removeWhere((r) => r.id == review.id);
+        revision.value++;
+        return;
+      }
 
-    await _col
-        .doc(review.id)
-        .delete()
-        .timeout(const Duration(seconds: 15));
-    revision.value++;
+      await _col
+          .doc(review.id)
+          .delete()
+          .timeout(const Duration(seconds: 15));
+      revision.value++;
+    } finally {
+      _deleting.remove(review.id);
+    }
   }
 
   /// تقييمي الحالي بملعب معيّن (إن وجد) من قائمة محمّلة

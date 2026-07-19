@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/field.dart';
 import '../models/player_request.dart';
+import '../utils/input_sanitizer.dart';
 import 'bookings_service.dart';
 
 /// خدمة إعلانات "ناقصنا لاعب" — تقرأ وتكتب بمجموعة playerRequests
@@ -71,8 +72,36 @@ class PlayerRequestsService {
     return requests;
   }
 
+  /// نشر جاري؟ — ما ننشر إعلانين بضغطة مكررة
+  bool _posting = false;
+
+  /// حذف جاري (بمعرّف الإعلان) — منع الحذف المزدوج
+  final Set<String> _deleting = {};
+
   /// نشر إعلان جديد لليوم
   Future<void> createRequest({
+    required Sport sport,
+    required String place,
+    required int hour,
+    required int playersNeeded,
+    String note = '',
+  }) async {
+    if (_posting) return;
+    _posting = true;
+    try {
+      await _createRequest(
+        sport: sport,
+        place: place,
+        hour: hour,
+        playersNeeded: playersNeeded,
+        note: note,
+      );
+    } finally {
+      _posting = false;
+    }
+  }
+
+  Future<void> _createRequest({
     required Sport sport,
     required String place,
     required int hour,
@@ -84,11 +113,11 @@ class PlayerRequestsService {
       userId: currentUserId,
       phone: _currentPhone,
       sport: sport,
-      place: place.trim(),
+      place: InputSanitizer.clean(place, maxLength: 50),
       date: BookingsService.todayDate(),
       hour: hour,
-      playersNeeded: playersNeeded,
-      note: note.trim(),
+      playersNeeded: playersNeeded.clamp(1, 5),
+      note: InputSanitizer.clean(note, maxLength: 100),
     );
 
     if (_useMock) {
@@ -109,17 +138,22 @@ class PlayerRequestsService {
 
   /// حذف إعلاني (من يكتمل الفريق)
   Future<void> deleteRequest(PlayerRequest request) async {
-    if (_useMock) {
-      _mockRequests.removeWhere((r) => r.id == request.id);
-      revision.value++;
-      return;
-    }
+    if (!_deleting.add(request.id)) return;
+    try {
+      if (_useMock) {
+        _mockRequests.removeWhere((r) => r.id == request.id);
+        revision.value++;
+        return;
+      }
 
-    await FirebaseFirestore.instance
-        .collection('playerRequests')
-        .doc(request.id)
-        .delete()
-        .timeout(const Duration(seconds: 15));
-    revision.value++;
+      await FirebaseFirestore.instance
+          .collection('playerRequests')
+          .doc(request.id)
+          .delete()
+          .timeout(const Duration(seconds: 15));
+      revision.value++;
+    } finally {
+      _deleting.remove(request.id);
+    }
   }
 }

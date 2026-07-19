@@ -72,6 +72,9 @@ class AppStrings {
   static const String noResults = 'ماكو ملاعب بهذا البحث 😕\nجرّب كلمة ثانية';
   static const String perHour = 'للساعة';
   static const String perHourShort = 'د.ع/س';
+
+  /// مكان بعده ما مسجّل بالتطبيق — ما عدنا سعره
+  static const String priceOnCall = 'اتصل للسعر';
   static const String reviewWord = 'تقييم';
   static const String logout = 'تسجيل خروج';
 
@@ -137,6 +140,9 @@ class AppStrings {
   static const String noBookingsTitle = 'بعدك ما عندك حجوزات';
   static const String noBookingsMessage =
       'من تحجز ملعب، حجزك راح يظهر هنا\nمع وقته وتفاصيله';
+  static const String browseFields = 'تصفّح الملاعب';
+  static const String noPastBookingsMessage =
+      'ماكو حجوزات خلصت بعد.\nاحجز ملعب واستمتع بلعبتك!';
   static const String confirmedLabel = 'مؤكد';
   static const String todayLabel = 'اليوم';
   static const String cancelBookingTitle = 'إلغاء الحجز';
@@ -230,6 +236,30 @@ class AppStrings {
   static const String freeLabel = 'فاضي';
   static const String ownerHint =
       'الأوقات الخضراء محجوزة ومدفوع عربونها.\nتريد تسد وقت لصيانة أو حجز خارجي؟ احجزه بنفسك من صفحة الملعب.';
+
+  // إدارة صور الملعب (لصاحب الملعب)
+  static const String fieldPhotosTitle = 'صور الملعب';
+  static const String managePhotosAction = 'إدارة الصور';
+  static const String addPhotosButton = 'أضف صور';
+  static const String uploadingPhotos = 'نرفع الصور... لحظة';
+  static const String noFieldPhotosTitle = 'ماكو صور بعد';
+  static const String noFieldPhotosMessage =
+      'أضف صور حقيقية لملعبك — الصور الحلوة تزيد الحجوزات هواي!\nتگدر ترفع أكثر من صورة سوة.';
+  static const String photosCountLabel = 'صورة';
+  static const String coverPhotoBadge = 'الغلاف';
+  static const String photoUploadedOk = 'انرفعت الصور ✅';
+  static const String photoUploadError =
+      'ما گدرنا نرفع الصور 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+  static const String deletePhotoTitle = 'حذف الصورة';
+  static const String deletePhotoConfirm = 'متأكد تريد تحذف هالصورة؟';
+  static const String photoDeleted = 'انحذفت الصورة ✅';
+  static const String photoDeleteError = 'ما گدرنا نحذف الصورة 😕 جرّب مرة ثانية';
+  static const String photosNeedLiveApp =
+      'رفع الصور يشتغل بالتطبيق المنشور فقط — مو بوضع التجربة المحلي.';
+  static const String photoInvalidType =
+      'نقبل صور فقط (jpg, jpeg, png, webp) — الملف اللي اخترته مو صورة';
+  static const String photoTooLarge =
+      'حجم الصورة أكبر من ٥ ميغابايت — صغّرها وجرّب مرة ثانية';
 
   // لعبة ضربات الترجيح
   static const String gameTitle = 'ضربات الترجيح';

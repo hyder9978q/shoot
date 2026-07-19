@@ -29,10 +29,10 @@ class AppPalette {
   final Color primaryLight;
   final Color ink;
 
-  /// نص ثانوي (#6B7280)
+  /// نص ثانوي (#4B5563 — تباين ~7:1 على الأبيض)
   final Color grey;
 
-  /// نص خافت — تسميات وتفاصيل صغيرة (#9CA3AF)
+  /// نص خافت — تسميات وتفاصيل صغيرة (#6B7280 — تباين ~4.8:1 على الأبيض)
   final Color muted;
   final Color background;
   final Color surface;
@@ -69,8 +69,11 @@ class AppColors {
     primaryDeep: Color(0xFF166534),
     primaryLight: Color(0xFFDCFCE7),
     ink: Color(0xFF111827),
-    grey: Color(0xFF6B7280),
-    muted: Color(0xFF9CA3AF),
+    // grey: نص ثانوي — #4B5563 يحقق ~7:1 على الأبيض (WCAG AAA)
+    grey: Color(0xFF4B5563),
+    // muted: نص خافت — #6B7280 يحقق ~4.8:1 على الأبيض (WCAG AA)،
+    // بدل #9CA3AF القديم اللي كان يرسب بالتباين (~2.6:1)
+    muted: Color(0xFF6B7280),
     background: Color(0xFFF6F7F9),
     surface: Color(0xFFFFFFFF),
     border: Color(0xFFE5E7EB),
@@ -136,10 +139,10 @@ class AppColors {
   /// الأصفر — للتقييمات والعروض
   static Color get accent => _p.accent;
 
-  /// نص ثانوي (#6B7280)
+  /// نص ثانوي (#4B5563 — يحقق تباين WCAG AA/AAA على الأبيض)
   static Color get grey => _p.grey;
 
-  /// نص خافت — تسميات صغيرة ومسافات (#9CA3AF)
+  /// نص خافت — تسميات صغيرة ومسافات (#6B7280 — يحقق تباين WCAG AA)
   static Color get muted => _p.muted;
 
   /// خلفية الصفحات

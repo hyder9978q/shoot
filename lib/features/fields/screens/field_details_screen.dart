@@ -9,6 +9,7 @@ import '../../../core/services/reviews_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/widgets/field_card.dart' show FavoriteButton;
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
@@ -84,6 +85,7 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                 controller: commentController,
                 maxLines: 3,
                 maxLength: 200,
+                inputFormatters: [InputSanitizer.deny()],
                 decoration: const InputDecoration(
                   hintText: AppStrings.reviewCommentHint,
                   counterText: '',
@@ -278,15 +280,18 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  FieldImage(field: field),
-                  // تدرّج علوي حتى يبقى الزرين واضحين
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0x59111827), Colors.transparent],
-                        stops: [0, 0.4],
+                  // معرض صور قابل للتمرير (swipe) + نقاط
+                  FieldGallery(field: field),
+                  // تدرّج علوي حتى يبقى الزرين واضحين — لا يمنع التمرير
+                  const IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x59111827), Colors.transparent],
+                          stops: [0, 0.4],
+                        ),
                       ),
                     ),
                   ),

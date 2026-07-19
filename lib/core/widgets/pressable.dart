@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/// يخلي أي عنصر "يحس" بالضغطة — ينكمش 3% وقت اللمس ويرجع فوراً.
+/// يخلي أي عنصر "يحس" بالضغطة — ينكمش 3% وقت اللمس ويرجع فوراً،
+/// مع اهتزاز خفيف (haptic) يأكّد للمستخدم إن ضغطته وصلت.
 ///
 /// مبدأ من فلسفة Emil Kowalski للحركات: الواجهة لازم تثبت للمستخدم
 /// إنها سمعته. الانكماش خفيف (0.97) وسريع (120ms) مع ease-out قوي.
@@ -9,10 +11,18 @@ import 'package:flutter/material.dart';
 /// مرر [onTap] فقط إذا العنصر ما بيه InkWell خاص بيه.
 /// يحترم إعداد "تقليل الحركة" بالنظام.
 class Pressable extends StatefulWidget {
-  const Pressable({super.key, required this.child, this.onTap});
+  const Pressable({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.haptic = true,
+  });
 
   final Widget child;
   final VoidCallback? onTap;
+
+  /// اهتزاز خفيف عند الضغط — يطفّى للعناصر اللي ما تريدله ردة فعل لمسية
+  final bool haptic;
 
   @override
   State<Pressable> createState() => _PressableState();
@@ -36,7 +46,10 @@ class _PressableState extends State<Pressable> {
     if (widget.onTap != null) {
       child = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: () {
+          if (widget.haptic) HapticFeedback.selectionClick();
+          widget.onTap!();
+        },
         child: child,
       );
     }

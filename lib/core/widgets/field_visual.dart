@@ -29,30 +29,46 @@ class _FieldVisualPainter extends CustomPainter {
 
   final Sport sport;
 
+  /// لونا الأرضية حسب نوع المكان — عشب، ماء، أو أرضية صالة
+  List<Color> get _surface => switch (sport) {
+    Sport.swimming => const [Color(0xFF22D3EE), Color(0xFF0B4A6F)],
+    Sport.gym => const [Color(0xFF475569), Color(0xFF1E293B)],
+    Sport.volleyball => const [Color(0xFFD97706), Color(0xFF7C3F0A)],
+    _ => const [Color(0xFF16A34A), Color(0xFF0B5D2B)],
+  };
+
+  /// أشرطة قص العشب — بس للملاعب العشبية
+  bool get _hasMowStripes => switch (sport) {
+    Sport.swimming || Sport.gym || Sport.volleyball => false,
+    _ => true,
+  };
+
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // أرضية العشب — أخضر الهوية الثابت (ما يتبدل بالوضع الليلي)
+    // الأرضية — ألوان ثابتة ما تتبدل بالوضع الليلي
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF16A34A), Color(0xFF0B5D2B)],
+          colors: _surface,
         ).createShader(rect),
     );
 
-    // أشرطة قص العشب العمودية
-    final stripe = Paint()..color = Colors.white.withValues(alpha: 0.045);
-    const bands = 8;
-    final bandW = size.width / bands;
-    for (var i = 0; i < bands; i += 2) {
-      canvas.drawRect(
-        Rect.fromLTWH(i * bandW, 0, bandW, size.height),
-        stripe,
-      );
+    if (_hasMowStripes) {
+      // أشرطة قص العشب العمودية
+      final stripe = Paint()..color = Colors.white.withValues(alpha: 0.045);
+      const bands = 8;
+      final bandW = size.width / bands;
+      for (var i = 0; i < bands; i += 2) {
+        canvas.drawRect(
+          Rect.fromLTWH(i * bandW, 0, bandW, size.height),
+          stripe,
+        );
+      }
     }
 
     // خطوط الملعب
@@ -63,12 +79,19 @@ class _FieldVisualPainter extends CustomPainter {
 
     switch (sport) {
       case Sport.football:
+      case Sport.sportsCentre:
         _football(canvas, size, line);
       case Sport.basketball:
         _basketball(canvas, size, line);
       case Sport.tennis:
       case Sport.padel:
         _racket(canvas, size, line, isPadel: sport == Sport.padel);
+      case Sport.volleyball:
+        _volleyball(canvas, size, line);
+      case Sport.swimming:
+        _pool(canvas, size, line);
+      case Sport.gym:
+        _gym(canvas, size, line);
     }
 
     // إضاءة خفيفة من الأعلى + تعتيم بسيط بالأسفل يعطي عمق
@@ -193,6 +216,112 @@ class _FieldVisualPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..color = Colors.white.withValues(alpha: 0.75);
     canvas.drawLine(b.topCenter, b.bottomCenter, net);
+  }
+
+  /// ملعب الطائرة — شبكة بالمنتصف وخطا الهجوم
+  void _volleyball(Canvas canvas, Size size, Paint line) {
+    final b = _bounds(size);
+    canvas.drawRect(b, line);
+
+    // خطا الهجوم على جهتي الشبكة
+    for (final sign in [-1.0, 1.0]) {
+      final dx = b.center.dx + sign * b.width * 0.17;
+      canvas.drawLine(Offset(dx, b.top), Offset(dx, b.bottom), line);
+    }
+
+    // الشبكة — خط أعرض مع أعمدة
+    final net = Paint()
+      ..strokeWidth = line.strokeWidth * 1.8
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: 0.80);
+    canvas.drawLine(b.topCenter, b.bottomCenter, net);
+    final postR = line.strokeWidth * 1.6;
+    final post = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    canvas.drawCircle(b.topCenter, postR, post);
+    canvas.drawCircle(b.bottomCenter, postR, post);
+  }
+
+  /// المسبح — مسارات سباحة بحبال فاصلة وحافة فاتحة
+  void _pool(Canvas canvas, Size size, Paint line) {
+    final b = _bounds(size);
+
+    // حافة المسبح
+    final deck = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = line.strokeWidth * 2.4
+      ..color = Colors.white.withValues(alpha: 0.30);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(b, Radius.circular(size.shortestSide * 0.04)),
+      deck,
+    );
+
+    // حبال المسارات — أفقية عبر طول المسبح
+    const lanes = 5;
+    final laneH = b.height / lanes;
+    final rope = Paint()
+      ..strokeWidth = line.strokeWidth * 0.9
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: 0.45);
+    for (var i = 1; i < lanes; i++) {
+      final dy = b.top + i * laneH;
+      canvas.drawLine(Offset(b.left, dy), Offset(b.right, dy), rope);
+    }
+
+    // خط النهاية بكل مسار — علامة قصيرة على الحافتين
+    final mark = Paint()
+      ..strokeWidth = line.strokeWidth * 1.6
+      ..color = Colors.white.withValues(alpha: 0.55);
+    for (var i = 0; i < lanes; i++) {
+      final dy = b.top + (i + 0.5) * laneH;
+      canvas.drawLine(
+        Offset(b.left, dy),
+        Offset(b.left + b.width * 0.06, dy),
+        mark,
+      );
+      canvas.drawLine(
+        Offset(b.right - b.width * 0.06, dy),
+        Offset(b.right, dy),
+        mark,
+      );
+    }
+  }
+
+  /// النادي الرياضي — حديد (بار بأثقال) على أرضية الصالة
+  void _gym(Canvas canvas, Size size, Paint line) {
+    final b = _bounds(size);
+    final c = b.center;
+    final barW = b.width * 0.62;
+    final fill = Paint()..color = Colors.white.withValues(alpha: 0.70);
+
+    // البار
+    canvas.drawLine(
+      Offset(c.dx - barW / 2, c.dy),
+      Offset(c.dx + barW / 2, c.dy),
+      Paint()
+        ..strokeWidth = line.strokeWidth * 1.3
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.70),
+    );
+
+    // الأثقال — قرصين بكل جهة
+    final plateH = b.height * 0.42;
+    final plateW = b.width * 0.045;
+    for (final sign in [-1.0, 1.0]) {
+      for (final (i, scale) in [1.0, 0.66].indexed) {
+        final dx = c.dx + sign * (barW / 2 - plateW * (0.6 + i * 1.6));
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset(dx, c.dy),
+              width: plateW,
+              height: plateH * scale,
+            ),
+            Radius.circular(plateW * 0.35),
+          ),
+          fill,
+        );
+      }
+    }
   }
 
   @override

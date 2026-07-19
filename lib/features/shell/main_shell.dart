@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/models/field.dart';
+import '../../core/navigation/app_tabs.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/local_store.dart';
 import '../../core/services/bookings_service.dart';
 import '../../core/services/reviews_service.dart';
 import '../../core/services/fields_service.dart';
@@ -12,6 +17,7 @@ import '../../core/services/user_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/utils/arabic_num.dart';
+import '../auth/screens/login_screen.dart';
 import '../bookings/screens/bookings_tab.dart';
 import '../home/screens/home_screen.dart';
 import '../owner/screens/owner_dashboard_screen.dart';
@@ -29,24 +35,55 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _index = 0;
+  /// حارس الجلسة: إذا انتهت جلسة Firebase (انتهاء توكن / حذف حساب /
+  /// تسجيل خروج) نرجّع المستخدم لشاشة الدخول فوراً.
+  /// وبنفس الوقت يمنع الواصل غير المسجّل من البقاء بأي شاشة داخلية.
+  StreamSubscription<User?>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Firebase.apps.isNotEmpty) {
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+        if (user != null || !mounted) return;
+        // الجلسة المحلية (الدخول التجريبي) ما تنكسر بغياب مستخدم Firebase —
+        // نطرد فقط إذا حتى الجلسة المحلية ممسوحة (خروج فعلي / حذف حساب)
+        if (await LocalStore.signedIn) return;
+        if (!mounted) return;
+        UserService.instance.resetForSignOut();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: const [
-          HomeTab(),
-          BookingsTab(),
-          PlayersTab(),
-          _ProfileTab(),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
+    // نسمع متحكّم التبويبات حتى أي شاشة تگدر تنقل المستخدم (زر تصفّح الملاعب...)
+    return ValueListenableBuilder<int>(
+      valueListenable: AppTabs.current,
+      builder: (context, index, _) => Scaffold(
+        body: IndexedStack(
+          index: index,
+          children: const [
+            HomeTab(),
+            BookingsTab(),
+            PlayersTab(),
+            _ProfileTab(),
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: AppTabs.go,
+          destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
@@ -62,12 +99,13 @@ class _MainShellState extends State<MainShell> {
             selectedIcon: Icon(Icons.group_add_rounded),
             label: 'ناقصنا لاعب',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'حسابي',
-          ),
-        ],
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: 'حسابي',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -327,6 +365,9 @@ class _ProfileTabState extends State<_ProfileTab> {
                     last: true,
                     onTap: () async {
                       await AuthService.instance.signOut();
+                      // مع Firebase: حارس الجلسة بالأعلى يلتقط الخروج
+                      // ويوجّه لشاشة الدخول — ما ننقل مرتين
+                      if (Firebase.apps.isNotEmpty) return;
                       UserService.instance.resetForSignOut();
                       if (!context.mounted) return;
                       Navigator.of(context).pushAndRemoveUntil(
@@ -445,7 +486,12 @@ class _ProfileItem extends StatelessWidget {
     return Material(
       color: AppColors.surface,
       child: InkWell(
-        onTap: onTap,
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap!();
+              },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           decoration: last

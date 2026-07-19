@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:shoot/core/utils/date_labels.dart';
 import 'package:shoot/features/bookings/screens/bookings_tab.dart';
 import 'package:shoot/features/home/widgets/play_now_section.dart';
 import 'package:shoot/features/players/screens/new_request_screen.dart';
@@ -19,6 +20,11 @@ void main() {
     // (القسم إله اختبار مستقل بـ play_now_test.dart)
     PlayNowSection.debugNowHour = 24;
     addTearDown(() => PlayNowSection.debugNowHour = null);
+
+    // نثبت الوقت الظهر حتى حجز الساعة 17:00 يظل "قادم" مهما كان
+    // وقت تشغيل الاختبار (بدون التثبيت يفشل إذا انشغّل بعد الـ 6 مساءً)
+    DateLabels.debugNow = DateTime(2026, 7, 15, 12);
+    addTearDown(() => DateLabels.debugNow = null);
 
     await tester.pumpWidget(const ShootApp());
 

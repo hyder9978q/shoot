@@ -6,6 +6,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
+import 'local_store.dart';
+
 /// خدمة تسجيل الدخول برقم الهاتف
 ///
 /// إذا Firebase مرتبط وشغّال → ترسل رمز حقيقي عبر Firebase Auth.
@@ -23,6 +25,14 @@ class AuthService {
   /// معرّف جلسة التحقق (sessionInfo / verificationId)
   String? _verificationId;
 
+  /// آخر إرسال ناجح لكل رقم — منع إعادة الإرسال قبل ٦٠ ثانية
+  /// (خط دفاع بالخدمة نفسها، فوق عدّاد الواجهة)
+  final Map<String, DateTime> _lastOtpSend = {};
+  static const Duration _otpCooldown = Duration(seconds: 60);
+
+  /// إرسال جاري؟ ما نرسل طلب ثاني والأول لسا شغال
+  bool _sendingOtp = false;
+
   /// هل رقم الموبايل عراقي صحيح؟ (يبدي بـ 07 وطوله 11 رقم)
   static bool isValidIraqiPhone(String phone) {
     final cleaned = phone.replaceAll(RegExp(r'\s'), '');
@@ -37,11 +47,32 @@ class AuthService {
 
   /// إرسال رمز التحقق
   Future<void> sendOtp(String phone) async {
+    if (!isValidIraqiPhone(phone)) {
+      throw FirebaseAuthException(code: 'invalid-phone-number');
+    }
+    if (_sendingOtp) return;
+    final lastSend = _lastOtpSend[phone];
+    if (lastSend != null &&
+        DateTime.now().difference(lastSend) < _otpCooldown) {
+      throw FirebaseAuthException(code: 'too-many-requests');
+    }
+
     if (!_useFirebase) {
       await Future.delayed(const Duration(seconds: 1));
+      _lastOtpSend[phone] = DateTime.now();
       return;
     }
 
+    _sendingOtp = true;
+    try {
+      await _sendOtp(phone);
+      _lastOtpSend[phone] = DateTime.now();
+    } finally {
+      _sendingOtp = false;
+    }
+  }
+
+  Future<void> _sendOtp(String phone) async {
     final e164 = toE164(phone);
     if (kIsWeb) {
       // على الويب نستخدم واجهة Firebase المباشرة (REST) بدل نافذة reCAPTCHA
@@ -59,6 +90,7 @@ class AuthService {
           // أندرويد ممكن يقرأ الرمز وحده — نسجّل الدخول مباشرة
           try {
             await FirebaseAuth.instance.signInWithCredential(credential);
+            await LocalStore.setSignedIn(true);
           } catch (_) {}
         },
         verificationFailed: (e) {
@@ -103,14 +135,18 @@ class AuthService {
                 : body.contains('OPERATION_NOT_ALLOWED')
                     ? 'operation-not-allowed'
                     : 'send-failed';
-    throw FirebaseAuthException(code: code, message: body);
+    // ما نمرّر جسم الرد الخام — ممكن يحتوي رقم الهاتف ويتسرب لأي معالج أخطاء
+    throw FirebaseAuthException(code: code);
   }
 
   /// التحقق من الرمز — يرجع true إذا صحيح
   Future<bool> verifyOtp(String code) async {
     if (!_useFirebase) {
       await Future.delayed(const Duration(milliseconds: 800));
-      return code.trim() == _mockOtp;
+      final ok = code.trim() == _mockOtp;
+      // بالوضع التجريبي ماكو جلسة Firebase — نثبّت الجلسة محلياً
+      if (ok) await LocalStore.setSignedIn(true);
+      return ok;
     }
 
     final verificationId = _verificationId;
@@ -121,6 +157,9 @@ class AuthService {
         smsCode: code.trim(),
       );
       await FirebaseAuth.instance.signInWithCredential(credential);
+      // نجح الدخول: نمسح معرّف الجلسة فوراً — ما نخليه بالذاكرة أكثر من اللازم
+      _verificationId = null;
+      await LocalStore.setSignedIn(true);
       return true;
     } on FirebaseAuthException {
       return false;
@@ -129,6 +168,9 @@ class AuthService {
 
   /// تسجيل الخروج
   Future<void> signOut() async {
+    // نمسح الجلسة المحلية قبل خروج Firebase حتى حارس الجلسة
+    // بالهيكل الرئيسي يلگاها ممسوحة ويوجّه لشاشة الدخول
+    await LocalStore.setSignedIn(false);
     if (_useFirebase) await FirebaseAuth.instance.signOut();
     _verificationId = null;
   }

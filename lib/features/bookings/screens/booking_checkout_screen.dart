@@ -39,6 +39,10 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
   int get _deposit => FieldsService.depositAmount;
   int get _rest => widget.field.pricePerHour - _deposit;
 
+  /// المكان ما يطلب عربون (مراكز العلاج مثلاً حسب إعدادات المالك)
+  /// → التأكيد بدون دفع، والمبلغ كله يندفع هناك
+  bool get _noDeposit => !widget.field.paymentDeposit;
+
   Future<void> _pay() async {
     setState(() => _paying = true);
     try {
@@ -119,8 +123,10 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                         ),
                       )
                     : Text(
-                        '${AppStrings.payDeposit} '
-                        '${ArabicNum.money(_deposit)} ${AppStrings.iqd}',
+                        _noDeposit
+                            ? AppStrings.confirmNoDeposit
+                            : '${AppStrings.payDeposit} '
+                                '${ArabicNum.money(_deposit)} ${AppStrings.iqd}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -206,7 +212,9 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                             value: '${DateLabels.label(widget.date)} · $hour',
                           ),
                           _SummaryLine(
-                            label: AppStrings.hourPriceLabel,
+                            label: field.sport.isSessionBased
+                                ? AppStrings.sessionPriceLabel
+                                : AppStrings.hourPriceLabel,
                             value: '${ArabicNum.money(field.pricePerHour)} '
                                 '${AppStrings.iqd}',
                           ),
@@ -216,7 +224,9 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  AppStrings.depositNow,
+                                  _noDeposit
+                                      ? AppStrings.payAtVenueLabel
+                                      : AppStrings.depositNow,
                                   style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w700,
@@ -225,7 +235,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                                 ),
                               ),
                               Text(
-                                '${ArabicNum.money(_deposit)} ${AppStrings.iqd}',
+                                '${ArabicNum.money(_noDeposit ? field.pricePerHour : _deposit)} ${AppStrings.iqd}',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
@@ -236,9 +246,11 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            AppStrings.restAtField(
-                              '${ArabicNum.money(_rest)} ${AppStrings.iqd}',
-                            ),
+                            _noDeposit
+                                ? AppStrings.noDepositNote
+                                : AppStrings.restAtField(
+                                    '${ArabicNum.money(_rest)} ${AppStrings.iqd}',
+                                  ),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -248,6 +260,8 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                         ],
                       ),
                     ),
+                    // بدون عربون؟ ماكو دفع بالتطبيق — نخفي طرق الدفع
+                    if (!_noDeposit) ...[
                     const SizedBox(height: 22),
                     Text(
                       AppStrings.payMethodTitle,
@@ -321,6 +335,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                         ),
                       ),
                     ),
+                    ],
                   ],
                 ),
               ),

@@ -56,6 +56,8 @@ class _PlayNowSectionState extends State<PlayNowSection> {
 
     final entries = <_PlayNowEntry>[];
     for (final field in fields) {
+      // مراكز العلاج مواعيد مو «لعب» — ما تدخل بهذا القسم
+      if (field.sport.isSessionBased) continue;
       final taken = booked[field.id] ?? const <int>{};
       // أقرب ساعة فاضية من هسه لنهاية الدوام
       for (var h = nowHour < field.openHour ? field.openHour : nowHour;

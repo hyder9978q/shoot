@@ -27,7 +27,7 @@ enum Amenity {
   }
 }
 
-/// أنواع الأماكن الرياضية المدعومة — ملاعب ومسابح وأندية
+/// فئات المنشآت المدعومة — ملاعب ومسابح وأندية ومراكز علاج
 enum Sport {
   football('كرة قدم', Icons.sports_soccer),
   padel('بادل', Icons.sports_tennis),
@@ -36,7 +36,8 @@ enum Sport {
   volleyball('كرة طائرة', Icons.sports_volleyball),
   swimming('مسبح', Icons.pool_rounded),
   gym('نادي رياضي', Icons.fitness_center_rounded),
-  sportsCentre('مجمع رياضي', Icons.stadium_rounded);
+  sportsCentre('مجمع رياضي', Icons.stadium_rounded),
+  therapy('علاج رياضي', Icons.healing_rounded);
 
   const Sport(this.label, this.icon);
 
@@ -50,11 +51,64 @@ enum Sport {
     Sport.volleyball ||
     Sport.padel ||
     Sport.tennis => true,
-    Sport.swimming || Sport.gym || Sport.sportsCentre => false,
+    Sport.swimming || Sport.gym || Sport.sportsCentre || Sport.therapy =>
+      false,
   };
+
+  /// حجز بالجلسة/الموعد بدل الحجز بالساعة (مراكز العلاج)
+  bool get isSessionBased => this == Sport.therapy;
 }
 
-/// موديل الملعب — نفس الحقول راح تنخزن بـ Firestore لاحقاً
+/// خدمة تقدّمها المنشأة (مراكز العلاج مثلاً) — اسم وسعر بالدينار
+class VenueService {
+  const VenueService({required this.name, required this.price});
+
+  /// من خريطة Firestore — null إذا البيانات ناقصة أو خربانة
+  static VenueService? fromMap(dynamic data) {
+    if (data is! Map) return null;
+    final name = data['name'];
+    if (name is! String || name.isEmpty) return null;
+    return VenueService(
+      name: name,
+      price: (data['price'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final String name;
+  final int price;
+
+  Map<String, Object> toMap() => {'name': name, 'price': price};
+}
+
+/// لقطة من الملعب (هايلايت) — صورة مرفوعة أو رابط فيديو (يوتيوب/انستغرام)
+class FieldHighlight {
+  const FieldHighlight({required this.url, required this.isVideo});
+
+  /// من خريطة Firestore — null إذا البيانات ناقصة أو خربانة
+  static FieldHighlight? fromMap(dynamic data) {
+    if (data is! Map) return null;
+    final url = data['url'];
+    if (url is! String || url.isEmpty) return null;
+    return FieldHighlight(url: url, isVideo: data['type'] == 'video');
+  }
+
+  final String url;
+
+  /// true = رابط فيديو خارجي، false = صورة مرفوعة
+  final bool isVideo;
+
+  Map<String, String> toMap() => {
+        'type': isVideo ? 'video' : 'image',
+        'url': url,
+      };
+}
+
+/// «منشأة» — الاسم العام لأي مكان بالتطبيق: ملعب، مسبح، مركز علاج...
+/// نفس الموديل [Field] بكل ميزاته (حجز، صور، دفع، صلاحيات المالك).
+typedef Venue = Field;
+
+/// موديل المنشأة (تاريخياً «الملعب») — نفس الحقول تنخزن بـ Firestore.
+/// الفئة تحددها [sport]: ملعب، مسبح، مركز علاج رياضي وطبيعي...
 class Field {
   const Field({
     required this.id,
@@ -79,6 +133,15 @@ class Field {
     this.placeId = '',
     this.photoName = '',
     this.phone = '',
+    this.isOpen = true,
+    this.mapsUrl = '',
+    this.promoImageUrls = const [],
+    this.highlights = const [],
+    this.paymentDeposit = true,
+    this.paymentCashOnArrival = true,
+    this.zainCashEnabled = false,
+    this.zainCashMerchantId = '',
+    this.services = const [],
   });
 
   /// إنشاء ملعب من مستند Firestore
@@ -112,6 +175,24 @@ class Field {
       placeId: (data['placeId'] as String?) ?? '',
       photoName: (data['photoName'] as String?) ?? '',
       phone: (data['phone'] as String?) ?? '',
+      isOpen: (data['isOpen'] as bool?) ?? true,
+      mapsUrl: (data['mapsUrl'] as String?) ?? '',
+      promoImageUrls: [
+        for (final u in (data['promoImageUrls'] as List?) ?? const [])
+          if (u is String && u.isNotEmpty) u,
+      ],
+      highlights: [
+        for (final h in (data['highlights'] as List?) ?? const [])
+          ?FieldHighlight.fromMap(h),
+      ],
+      paymentDeposit: (data['paymentDeposit'] as bool?) ?? true,
+      paymentCashOnArrival: (data['paymentCashOnArrival'] as bool?) ?? true,
+      zainCashEnabled: (data['zainCashEnabled'] as bool?) ?? false,
+      zainCashMerchantId: (data['zainCashMerchantId'] as String?) ?? '',
+      services: [
+        for (final s in (data['services'] as List?) ?? const [])
+          ?VenueService.fromMap(s),
+      ],
     );
   }
 
@@ -167,7 +248,37 @@ class Field {
   /// رقم هاتف المكان (من خرائط Google) — للأماكن اللي بعدها ما مسجلة عدنا
   final String phone;
 
+  /// حالة الملعب: مفتوح / مغلق مؤقتاً (يتحكم بيها المالك)
+  final bool isOpen;
+
+  /// رابط موقع الملعب على خرائط Google (يحطه المالك) — فارغ = نعتمد الإحداثيات
+  final String mapsUrl;
+
+  /// صور ترويجية (عروض/إعلانات) تظهر كبانر بصفحة الملعب
+  final List<String> promoImageUrls;
+
+  /// لقطات الملعب — صور أو روابط فيديو من مباريات انلعبت بالملعب
+  final List<FieldHighlight> highlights;
+
+  /// طرق الدفع المقبولة بالملعب (يتحكم بيها المالك)
+  final bool paymentDeposit;
+  final bool paymentCashOnArrival;
+
+  /// بوابة زين كاش — واجهة فقط، التفعيل الفعلي بعده ما مربوط
+  final bool zainCashEnabled;
+  final String zainCashMerchantId;
+
+  /// الخدمات المقدّمة وأسعارها (لمراكز العلاج خصوصاً) — يديرها المالك
+  final List<VenueService> services;
+
   bool get hasLocation => lat != 0 && lng != 0;
+
+  /// رابط الموقع اللي ينفتح من صفحة الملعب: رابط المالك أولاً، ثم الإحداثيات
+  String get locationUrl {
+    if (mapsUrl.isNotEmpty) return mapsUrl;
+    if (!hasLocation) return '';
+    return 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+  }
 
   /// ينحجز بالتطبيق؟ الأماكن المسحوبة من الخرائط ما عدها سعر ولا مالك،
   /// فتنعرض للاكتشاف والاتصال بس، لحد ما صاحبها يسجّل ويحدد سعره.
@@ -196,19 +307,37 @@ class Field {
     return images.isEmpty ? '' : images.first;
   }
 
-  /// نسخة معدّلة — تُستخدم بعد رفع المالك صوراً جديدة لتحديث الواجهة فوراً
-  Field copyWith({List<String>? imageUrls}) {
+  /// نسخة معدّلة — تُستخدم بعد أي تعديل من المالك لتحديث الواجهة فوراً
+  Field copyWith({
+    String? name,
+    String? area,
+    String? city,
+    Sport? sport,
+    int? pricePerHour,
+    int? openHour,
+    int? closeHour,
+    List<String>? imageUrls,
+    bool? isOpen,
+    String? mapsUrl,
+    List<String>? promoImageUrls,
+    List<FieldHighlight>? highlights,
+    bool? paymentDeposit,
+    bool? paymentCashOnArrival,
+    bool? zainCashEnabled,
+    String? zainCashMerchantId,
+    List<VenueService>? services,
+  }) {
     return Field(
       id: id,
-      name: name,
-      area: area,
-      city: city,
-      sport: sport,
-      pricePerHour: pricePerHour,
+      name: name ?? this.name,
+      area: area ?? this.area,
+      city: city ?? this.city,
+      sport: sport ?? this.sport,
+      pricePerHour: pricePerHour ?? this.pricePerHour,
       rating: rating,
       reviewsCount: reviewsCount,
-      openHour: openHour,
-      closeHour: closeHour,
+      openHour: openHour ?? this.openHour,
+      closeHour: closeHour ?? this.closeHour,
       ownerId: ownerId,
       imageUrl: imageUrl,
       imageUrls: imageUrls ?? this.imageUrls,
@@ -221,6 +350,15 @@ class Field {
       placeId: placeId,
       photoName: photoName,
       phone: phone,
+      isOpen: isOpen ?? this.isOpen,
+      mapsUrl: mapsUrl ?? this.mapsUrl,
+      promoImageUrls: promoImageUrls ?? this.promoImageUrls,
+      highlights: highlights ?? this.highlights,
+      paymentDeposit: paymentDeposit ?? this.paymentDeposit,
+      paymentCashOnArrival: paymentCashOnArrival ?? this.paymentCashOnArrival,
+      zainCashEnabled: zainCashEnabled ?? this.zainCashEnabled,
+      zainCashMerchantId: zainCashMerchantId ?? this.zainCashMerchantId,
+      services: services ?? this.services,
     );
   }
 
@@ -236,6 +374,7 @@ class Field {
       Sport.swimming => 'مسبح',
       Sport.gym => 'صالة مغلقة',
       Sport.sportsCentre => 'متعدد',
+      Sport.therapy => 'غرف علاج',
     };
   }
 
@@ -251,6 +390,7 @@ class Field {
       Sport.swimming => 'مسارات',
       Sport.gym => 'صالة',
       Sport.sportsCentre => 'مجمع',
+      Sport.therapy => 'جلسات',
     };
   }
 

@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/field.dart';
 import '../utils/input_sanitizer.dart';
+import 'supabase_storage_service.dart';
 
 /// ملف مرفوض عند الرفع — مو صورة أو حجمه أكبر من المسموح
 class InvalidImageException implements Exception {
@@ -32,7 +32,9 @@ class FieldsService {
     final cached = _cache;
     if (cached != null) return cached;
 
-    if (Firebase.apps.isEmpty) return _cache = _mockFields;
+    // نسخة قابلة للتعديل من البيانات التجريبية — حتى تعديلات المالك
+    // بوضع التجربة تشتغل بالذاكرة
+    if (Firebase.apps.isEmpty) return _cache = List.of(_mockFields);
 
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -43,10 +45,10 @@ class FieldsService {
       final fields = [
         for (final doc in snapshot.docs) Field.fromMap(doc.id, doc.data()),
       ]..sort((a, b) => b.rating.compareTo(a.rating));
-      return _cache = fields.isEmpty ? _mockFields : fields;
+      return _cache = fields.isEmpty ? List.of(_mockFields) : fields;
     } catch (_) {
       // بدون نت أو أي خطأ: نرجع للبيانات التجريبية بدل شاشة فارغة
-      return _cache = _mockFields;
+      return _cache = List.of(_mockFields);
     }
   }
 
@@ -157,6 +159,48 @@ class FieldsService {
       rating: 4.8,
       reviewsCount: 150,
     ),
+    // منشآت الفئات الجديدة: مسبح (حجز بالساعة) ومركز علاج (حجز بالجلسة)
+    Field(
+      id: 'f9',
+      lat: 33.3719,
+      lng: 44.3611,
+      name: 'مسبح بغداد الأولمبي',
+      area: 'الأعظمية',
+      city: 'بغداد',
+      sport: Sport.swimming,
+      pricePerHour: 10000,
+      rating: 4.6,
+      reviewsCount: 88,
+      openHour: 8,
+      closeHour: 22,
+      description:
+          'مسبح أولمبي مدفّأ بمسارات سباحة نظامية، مدربين متوفرين ويوجد وقت خاص للعوائل. المي تتبدل وتتعقم يومياً.',
+      amenities: [Amenity.parking, Amenity.changing, Amenity.water],
+    ),
+    Field(
+      id: 'f10',
+      lat: 33.3128,
+      lng: 44.3615,
+      name: 'مركز الشفاء للعلاج الرياضي',
+      area: 'الحارثية',
+      city: 'بغداد',
+      sport: Sport.therapy,
+      pricePerHour: 25000,
+      rating: 4.7,
+      reviewsCount: 64,
+      openHour: 9,
+      closeHour: 21,
+      // بوضع الاختبار: المستخدم التجريبي صاحب هذا المركز (إضافة لملعبه)
+      ownerId: 'mock-user',
+      description:
+          'مركز متخصص بالعلاج الرياضي والطبيعي — تأهيل إصابات الملاعب، جلسات مساج علاجي، ومتابعة مع أخصائيين مجازين.',
+      amenities: [Amenity.parking, Amenity.wifi],
+      services: [
+        VenueService(name: 'تأهيل إصابات رياضية', price: 30000),
+        VenueService(name: 'جلسة علاج طبيعي', price: 25000),
+        VenueService(name: 'مساج رياضي', price: 20000),
+      ],
+    ),
   ];
 
   /// ملاعب المستخدم الحالي (إذا هو صاحب ملعب) — فارغة للاعب العادي
@@ -205,12 +249,34 @@ class FieldsService {
   static bool get canUploadPhotos => Firebase.apps.isNotEmpty;
 
   /// فحص الملكية: ما نسمح بأي تعديل على ملعب مو تابع للمستخدم الحالي.
-  /// (قواعد Firestore/Storage تمنعه من السيرفر — وهذا خط دفاع بالتطبيق)
+  /// (قواعد Firestore تمنع كتابة المستند من السيرفر — وهذا خط دفاع بالتطبيق)
+  /// بوضع التجربة (بدون Firebase) المستخدم هو 'mock-user'.
   void _assertOwner(Field field) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = Firebase.apps.isEmpty
+        ? 'mock-user'
+        : FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || field.ownerId != uid) {
       throw StateError('غير مخوّل: هذا الملعب مو تابع لحسابك');
     }
+  }
+
+  /// يكتب تعديلات المالك على مستند الملعب (دمج) ويحدّث الذاكرة.
+  /// بوضع التجربة: التحديث بالذاكرة فقط حتى تبقى الواجهة شغالة.
+  Future<Field> _saveOwnerUpdate(
+    Field field,
+    Map<String, Object?> data,
+    Field updated,
+  ) async {
+    _assertOwner(field);
+    if (Firebase.apps.isNotEmpty) {
+      await FirebaseFirestore.instance
+          .collection('fields')
+          .doc(field.id)
+          .set(data, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 15));
+    }
+    _replaceInCache(updated);
+    return updated;
   }
 
   /// يبدّل الملعب بالذاكرة بنسخة محدّثة حتى تنعكس الصور بكل الشاشات فوراً
@@ -247,39 +313,53 @@ class FieldsService {
     return (ext, bytes);
   }
 
-  /// يرفع صوراً جديدة للملعب على Firebase Storage ويحفظ روابطها بـ Firestore.
-  /// يرجّع الملعب بنسخته المحدّثة (بكل الصور). يرمي استثناء عند الفشل.
-  Future<Field> addFieldPhotos(Field field, List<XFile> files) async {
+  /// يتحقق من الملفات كلها ثم يرفعها لـ bucket بـ Supabase Storage
+  /// ويرجّع روابطها العامة. يا كل الملفات تنرفع يا ولا واحد
+  /// (التحقق قبل أول رفع).
+  Future<List<String>> _uploadImages(
+    Field field,
+    String bucket,
+    List<XFile> files,
+  ) async {
     if (!canUploadPhotos) {
       throw StateError('رفع الصور يحتاج التطبيق المنشور (مو وضع التجربة)');
     }
     _assertOwner(field);
-    if (files.isEmpty) return field;
 
-    // نتحقق من كل الملفات قبل ما نرفع أي واحد — يا كلها صالحة يا ولا وحدة
     final validated = [for (final file in files) await _validateImage(file)];
 
-    final storage = FirebaseStorage.instance;
     final newUrls = <String>[];
     for (final (ext, bytes) in validated) {
       final stamp = DateTime.now().microsecondsSinceEpoch;
-      final ref = storage.ref('field_photos/${field.id}/$stamp.$ext');
-      await ref.putData(
-        bytes,
-        SettableMetadata(contentType: _allowedImageTypes[ext]),
-      );
-      newUrls.add(await ref.getDownloadURL());
+      newUrls.add(await SupabaseStorageService.upload(
+        bucket: bucket,
+        path: '${field.id}/$stamp.$ext',
+        bytes: bytes,
+        contentType: _allowedImageTypes[ext]!,
+      ));
     }
+    return newUrls;
+  }
 
+  /// حذف ملف من Supabase Storage برابطه — لو فشل (رابط قديم من Firebase
+  /// أو Unsplash مثلاً) ما نكسر العملية
+  Future<void> _deleteStorageFile(String url) async {
+    try {
+      await SupabaseStorageService.deleteByUrl(url);
+    } catch (_) {}
+  }
+
+  /// يرفع صوراً جديدة للملعب على Supabase Storage ويحفظ روابطها بـ Firestore.
+  /// يرجّع الملعب بنسخته المحدّثة (بكل الصور). يرمي استثناء عند الفشل.
+  Future<Field> addFieldPhotos(Field field, List<XFile> files) async {
+    if (files.isEmpty) return field;
+    final newUrls = await _uploadImages(field, 'field-photos', files);
     final updatedUrls = [...field.imageUrls, ...newUrls];
-    await FirebaseFirestore.instance
-        .collection('fields')
-        .doc(field.id)
-        .set({'imageUrls': updatedUrls}, SetOptions(merge: true));
-
-    final updated = field.copyWith(imageUrls: updatedUrls);
-    _replaceInCache(updated);
-    return updated;
+    return _saveOwnerUpdate(
+      field,
+      {'imageUrls': updatedUrls},
+      field.copyWith(imageUrls: updatedUrls),
+    );
   }
 
   /// يحذف صورة من الملعب — من Firestore ومن Storage.
@@ -288,24 +368,263 @@ class FieldsService {
     if (!canUploadPhotos) {
       throw StateError('حذف الصور يحتاج التطبيق المنشور (مو وضع التجربة)');
     }
-    _assertOwner(field);
-
     final updatedUrls = [
       for (final u in field.imageUrls)
         if (u != url) u,
     ];
-    await FirebaseFirestore.instance
-        .collection('fields')
-        .doc(field.id)
-        .set({'imageUrls': updatedUrls}, SetOptions(merge: true));
-
-    // حذف الملف نفسه — لو فشل (رابط قديم مثلاً) ما نكسر العملية
-    try {
-      await FirebaseStorage.instance.refFromURL(url).delete();
-    } catch (_) {}
-
-    final updated = field.copyWith(imageUrls: updatedUrls);
-    _replaceInCache(updated);
+    final updated = await _saveOwnerUpdate(
+      field,
+      {'imageUrls': updatedUrls},
+      field.copyWith(imageUrls: updatedUrls),
+    );
+    await _deleteStorageFile(url);
     return updated;
+  }
+
+  /// إعادة ترتيب صور الملعب (أول صورة = الغلاف).
+  /// الترتيب الجديد لازم يكون نفس الصور بدون زيادة أو نقصان.
+  Future<Field> reorderFieldPhotos(Field field, List<String> ordered) async {
+    if (ordered.length != field.imageUrls.length ||
+        !ordered.toSet().containsAll(field.imageUrls)) {
+      throw ArgumentError('ترتيب الصور الجديد لازم يضم نفس الصور');
+    }
+    return _saveOwnerUpdate(
+      field,
+      {'imageUrls': ordered},
+      field.copyWith(imageUrls: ordered),
+    );
+  }
+
+  // ---------- التحقق من الروابط ----------
+
+  /// رابط آمن؟ https فقط، بدون فراغات أو رموز خطيرة، وطول معقول
+  static bool isValidHttpsUrl(String url) {
+    final t = url.trim();
+    if (t.isEmpty || t.length > 500) return false;
+    if (RegExp(r'''[\s<>"'\\{}|^`]''').hasMatch(t)) return false;
+    final uri = Uri.tryParse(t);
+    return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
+  }
+
+  /// رابط فيديو مقبول للهايلايتس؟ https + يوتيوب أو انستغرام فقط
+  static bool isValidVideoUrl(String url) {
+    if (!isValidHttpsUrl(url)) return false;
+    final host = Uri.parse(url.trim()).host.toLowerCase();
+    const allowed = [
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+      'youtu.be',
+      'instagram.com',
+      'www.instagram.com',
+    ];
+    return allowed.contains(host);
+  }
+
+  // ---------- المعلومات الأساسية ----------
+
+  /// تحديث معلومات الملعب الأساسية — النصوص تنظّف بالـ sanitizer،
+  /// والسعر والساعات ينحصرون بحدود منطقية.
+  Future<Field> updateFieldInfo(
+    Field field, {
+    required String name,
+    required String area,
+    required String city,
+    required Sport sport,
+    required int pricePerHour,
+    required int openHour,
+    required int closeHour,
+    required bool isOpen,
+  }) async {
+    final cleanName = InputSanitizer.clean(name, maxLength: 50);
+    final cleanArea = InputSanitizer.clean(area, maxLength: 50);
+    final cleanCity = InputSanitizer.clean(city, maxLength: 30);
+    if (cleanName.isEmpty || cleanArea.isEmpty || cleanCity.isEmpty) {
+      throw ArgumentError('الاسم والمنطقة والمدينة مطلوبين');
+    }
+    if (pricePerHour < 0 || pricePerHour > 1000000) {
+      throw ArgumentError('السعر لازم يكون بين 0 ومليون دينار');
+    }
+    if (openHour < 0 || closeHour > 24 || openHour >= closeHour) {
+      throw ArgumentError('ساعات الدوام غير منطقية');
+    }
+    return _saveOwnerUpdate(
+      field,
+      {
+        'name': cleanName,
+        'area': cleanArea,
+        'city': cleanCity,
+        'sport': sport.name,
+        'pricePerHour': pricePerHour,
+        'openHour': openHour,
+        'closeHour': closeHour,
+        'isOpen': isOpen,
+      },
+      field.copyWith(
+        name: cleanName,
+        area: cleanArea,
+        city: cleanCity,
+        sport: sport,
+        pricePerHour: pricePerHour,
+        openHour: openHour,
+        closeHour: closeHour,
+        isOpen: isOpen,
+      ),
+    );
+  }
+
+  // ---------- الوسائط ----------
+
+  /// حفظ رابط موقع الملعب على خرائط Google — فارغ = حذف الرابط
+  Future<Field> setMapsUrl(Field field, String url) async {
+    final t = url.trim();
+    if (t.isNotEmpty && !isValidHttpsUrl(t)) {
+      throw ArgumentError('الرابط لازم يبدي بـ https');
+    }
+    return _saveOwnerUpdate(
+      field,
+      {'mapsUrl': t},
+      field.copyWith(mapsUrl: t),
+    );
+  }
+
+  /// رفع صور ترويجية — تظهر كبانر بصفحة الملعب
+  Future<Field> addPromoPhotos(Field field, List<XFile> files) async {
+    if (files.isEmpty) return field;
+    final newUrls = await _uploadImages(field, 'field-promos', files);
+    final updatedUrls = [...field.promoImageUrls, ...newUrls];
+    return _saveOwnerUpdate(
+      field,
+      {'promoImageUrls': updatedUrls},
+      field.copyWith(promoImageUrls: updatedUrls),
+    );
+  }
+
+  /// حذف صورة ترويجية
+  Future<Field> removePromoPhoto(Field field, String url) async {
+    final updatedUrls = [
+      for (final u in field.promoImageUrls)
+        if (u != url) u,
+    ];
+    final updated = await _saveOwnerUpdate(
+      field,
+      {'promoImageUrls': updatedUrls},
+      field.copyWith(promoImageUrls: updatedUrls),
+    );
+    await _deleteStorageFile(url);
+    return updated;
+  }
+
+  /// رفع صور لقطات الملعب (هايلايتس)
+  Future<Field> addHighlightPhotos(Field field, List<XFile> files) async {
+    if (files.isEmpty) return field;
+    final newUrls = await _uploadImages(field, 'field-highlights', files);
+    final updatedHighlights = [
+      ...field.highlights,
+      for (final url in newUrls) FieldHighlight(url: url, isVideo: false),
+    ];
+    return _saveOwnerUpdate(
+      field,
+      {'highlights': [for (final h in updatedHighlights) h.toMap()]},
+      field.copyWith(highlights: updatedHighlights),
+    );
+  }
+
+  /// إضافة رابط فيديو (يوتيوب/انستغرام) للقطات الملعب
+  Future<Field> addHighlightVideo(Field field, String url) async {
+    final t = url.trim();
+    if (!isValidVideoUrl(t)) {
+      throw ArgumentError('الرابط لازم يكون https من يوتيوب أو انستغرام');
+    }
+    final updatedHighlights = [
+      ...field.highlights,
+      FieldHighlight(url: t, isVideo: true),
+    ];
+    return _saveOwnerUpdate(
+      field,
+      {'highlights': [for (final h in updatedHighlights) h.toMap()]},
+      field.copyWith(highlights: updatedHighlights),
+    );
+  }
+
+  /// حذف لقطة — صورة (تنحذف من Storage) أو رابط فيديو
+  Future<Field> removeHighlight(Field field, FieldHighlight highlight) async {
+    final updatedHighlights = [
+      for (final h in field.highlights)
+        if (h.url != highlight.url) h,
+    ];
+    final updated = await _saveOwnerUpdate(
+      field,
+      {'highlights': [for (final h in updatedHighlights) h.toMap()]},
+      field.copyWith(highlights: updatedHighlights),
+    );
+    if (!highlight.isVideo) await _deleteStorageFile(highlight.url);
+    return updated;
+  }
+
+  // ---------- الخدمات (مراكز العلاج خصوصاً) ----------
+
+  /// الحد الأقصى لعدد الخدمات بالمنشأة الوحدة
+  static const int maxServices = 20;
+
+  /// تحديث خدمات المنشأة وأسعارها — الأسماء تنظّف بالـ sanitizer
+  /// والأسعار تنحصر بحدود منطقية.
+  Future<Field> updateServices(
+    Field field,
+    List<VenueService> services,
+  ) async {
+    if (services.length > maxServices) {
+      throw ArgumentError('أقصى عدد خدمات هو $maxServices');
+    }
+    final cleaned = <VenueService>[];
+    for (final s in services) {
+      final name = InputSanitizer.clean(s.name, maxLength: 60);
+      if (name.isEmpty) throw ArgumentError('اسم الخدمة مطلوب');
+      if (s.price < 0 || s.price > 1000000) {
+        throw ArgumentError('سعر الخدمة لازم يكون بين 0 ومليون دينار');
+      }
+      cleaned.add(VenueService(name: name, price: s.price));
+    }
+    return _saveOwnerUpdate(
+      field,
+      {'services': [for (final s in cleaned) s.toMap()]},
+      field.copyWith(services: cleaned),
+    );
+  }
+
+  // ---------- طرق الدفع ----------
+
+  /// تحديث طرق الدفع المقبولة — لازم تبقى طريقة وحدة مفعّلة على الأقل.
+  /// زين كاش واجهة فقط: ينحفظ التفعيل ومعرّف التاجر بس ما يشتغل دفع فعلي.
+  Future<Field> updatePaymentMethods(
+    Field field, {
+    required bool deposit,
+    required bool cashOnArrival,
+    required bool zainCashEnabled,
+    required String zainCashMerchantId,
+  }) async {
+    if (!deposit && !cashOnArrival) {
+      throw ArgumentError('لازم تبقى طريقة دفع وحدة مفعّلة على الأقل');
+    }
+    final cleanMerchantId =
+        InputSanitizer.clean(zainCashMerchantId, maxLength: 50);
+    if (zainCashEnabled && cleanMerchantId.isEmpty) {
+      throw ArgumentError('فعّلت زين كاش؟ دخّل معرّف التاجر');
+    }
+    return _saveOwnerUpdate(
+      field,
+      {
+        'paymentDeposit': deposit,
+        'paymentCashOnArrival': cashOnArrival,
+        'zainCashEnabled': zainCashEnabled,
+        'zainCashMerchantId': cleanMerchantId,
+      },
+      field.copyWith(
+        paymentDeposit: deposit,
+        paymentCashOnArrival: cashOnArrival,
+        zainCashEnabled: zainCashEnabled,
+        zainCashMerchantId: cleanMerchantId,
+      ),
+    );
   }
 }

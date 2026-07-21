@@ -47,9 +47,9 @@ class AppStrings {
   static const String homeHello = 'هلا بيك 👋';
   static String homeHelloNamed(String name) => 'هلا بيك، $name 👋';
 
-  static const String allFieldsTitle = 'كل الملاعب';
+  static const String allFieldsTitle = 'كل الأماكن';
   static const String resultsTitle = 'نتائج البحث';
-  static const String fieldWord = 'ملعب';
+  static const String fieldWord = 'مكان';
   static const String clearFilters = 'شيل الفلاتر';
 
   // بانر اللعبة
@@ -67,7 +67,7 @@ class AppStrings {
   static const String playTodayTitle = 'العب اليوم';
   static const String playTodaySubtitle = 'أقرب وقت فاضي بكل ملعب';
   static const String freeAtLabel = 'فاضي';
-  static const String searchHint = 'دوّر على ملعب أو منطقة...';
+  static const String searchHint = 'دوّر على ملعب، مسبح، مركز...';
   static const String allSports = 'الكل';
   static const String noResults = 'ماكو ملاعب بهذا البحث 😕\nجرّب كلمة ثانية';
   static const String perHour = 'للساعة';
@@ -260,6 +260,110 @@ class AppStrings {
       'نقبل صور فقط (jpg, jpeg, png, webp) — الملف اللي اخترته مو صورة';
   static const String photoTooLarge =
       'حجم الصورة أكبر من ٥ ميغابايت — صغّرها وجرّب مرة ثانية';
+
+  // إدارة الملعب (لصاحب الملعب)
+  static const String manageFieldAction = 'إدارة الملعب';
+  static const String manageFieldTitle = 'إدارة الملعب';
+  static const String basicInfoSection = 'المعلومات الأساسية';
+  static const String fieldNameLabel = 'اسم الملعب';
+  static const String fieldNameError = 'اكتب اسم الملعب';
+  static const String areaLabel = 'المنطقة';
+  static const String areaError = 'اكتب المنطقة';
+  static const String cityLabel = 'المدينة';
+  static const String cityError = 'اكتب المدينة';
+  static const String priceLabel = 'سعر الساعة (د.ع)';
+  static const String priceError = 'دخّل سعر صحيح (0 لحد مليون)';
+  static const String sportTypeLabel = 'نوع الرياضة';
+  static const String workingHoursLabel = 'ساعات الدوام';
+  static const String opensAtLabel = 'يفتح';
+  static const String closesAtLabel = 'يسد';
+  static const String hoursError = 'وقت الفتح لازم يكون قبل وقت السد';
+  static const String fieldStatusLabel = 'حالة الملعب';
+  static const String fieldOpenLabel = 'مفتوح — يستقبل حجوزات';
+  static const String fieldClosedLabel = 'مغلق مؤقتاً — ماكو حجوزات';
+  static const String fieldClosedBadge = 'مغلق مؤقتاً';
+  static const String saveInfoButton = 'احفظ التعديلات';
+  static const String infoSaved = 'انحفظت التعديلات ✅';
+  static const String infoSaveError =
+      'ما گدرنا نحفظ 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+
+  // الوسائط (لصاحب الملعب)
+  static const String mediaSection = 'الوسائط';
+  static const String mapsLinkLabel = 'رابط الموقع (خرائط گوگل)';
+  static const String mapsLinkHint = 'https://maps.app.goo.gl/...';
+  static const String mapsLinkError = 'الرابط لازم يبدي بـ https';
+  static const String mapsLinkSaved = 'انحفظ رابط الموقع ✅';
+  static const String promoSection = 'الصور الترويجية';
+  static const String promoHint =
+      'صور عروضك وإعلاناتك — تظهر كبانر بصفحة الملعب';
+  static const String addPromoButton = 'أضف صورة ترويجية';
+  static const String highlightsSection = 'لقطات الملعب';
+  static const String highlightsHint =
+      'أحلى اللقطات من مباريات ملعبك — صور أو روابط فيديو';
+  static const String addHighlightPhoto = 'أضف صورة';
+  static const String addHighlightVideo = 'أضف رابط فيديو';
+  static const String videoLinkTitle = 'رابط الفيديو';
+  static const String videoLinkHint = 'رابط يوتيوب أو انستغرام (https)';
+  static const String videoLinkError =
+      'الرابط لازم يكون https من يوتيوب أو انستغرام';
+  static const String highlightAdded = 'انضافت اللقطة ✅';
+  static const String deleteHighlightTitle = 'حذف اللقطة';
+  static const String deleteHighlightConfirm = 'متأكد تريد تحذف هاللقطة؟';
+  static const String videoBadge = 'فيديو';
+  static const String fieldHighlightsTitle = 'لقطات الملعب';
+
+  // طرق الدفع (لصاحب الملعب)
+  static const String paymentsSection = 'طرق الدفع';
+  static const String paymentsHint =
+      'اختار شلون يدفعون الزبائن بملعبك — لازم تبقى طريقة وحدة على الأقل';
+  static const String payDepositOption = 'عربون بالتطبيق';
+  static const String payDepositDesc = 'الزبون يدفع عربون ويكمّل الباقي بالملعب';
+  static const String payCashOption = 'كاش عند الوصول';
+  static const String payCashDesc = 'الزبون يدفع كامل المبلغ بالملعب';
+  static const String zainCashSection = 'بوابة زين كاش';
+  static const String zainCashComingSoon =
+      'التفعيل الفعلي قريباً — هسه بس نحفظ إعداداتك حتى تكون جاهزة';
+  static const String merchantIdLabel = 'معرّف التاجر (Merchant ID)';
+  static const String merchantIdHint = 'مثال: MER-12345';
+  static const String merchantIdError = 'فعّلت زين كاش؟ دخّل معرّف التاجر';
+  static const String onePaymentRequired =
+      'لازم تبقى طريقة دفع وحدة مفعّلة على الأقل';
+  static const String paymentsSaved = 'انحفظت طرق الدفع ✅';
+
+  // ترتيب الصور (لصاحب الملعب)
+  static const String reorderPhotosHint =
+      'اسحب الصور لترتيبها — أول صورة هي الغلاف';
+  static const String photosReordered = 'انحفظ الترتيب ✅';
+
+  // المنشآت — الفئات الجديدة (مسابح ومراكز علاج)
+  static const String therapyFullLabel = 'مركز علاج رياضي وطبيعي';
+  static const String servicesTitle = 'الخدمات والأسعار';
+  static const String sessionSlotsTitle = 'اختار موعد جلستك';
+  static const String bookSession = 'احجز موعد';
+  static const String sessionWord = 'جلسة';
+  static const String perSessionShort = 'د.ع/جلسة';
+  static const String sessionStartsFrom = 'الجلسة تبدأ من';
+  static const String sessionPriceLabel = 'سعر الجلسة';
+  static const String confirmNoDeposit = 'أكّد الحجز';
+  static const String noDepositNote =
+      'هذا المكان ما يطلب عربون — الدفع كله يصير هناك عند الوصول.';
+  static const String payAtVenueLabel = 'يُدفع بالمكان';
+
+  // إدارة الخدمات (لصاحب المنشأة)
+  static const String manageServicesSection = 'الخدمات والأسعار';
+  static const String manageServicesHint =
+      'خدمات مركزك وأسعارها — تظهر بصفحة المركز ويختار منها الزبون';
+  static const String addServiceButton = 'أضف خدمة';
+  static const String serviceNameLabel = 'اسم الخدمة';
+  static const String serviceNameHint = 'مثال: جلسة علاج طبيعي';
+  static const String serviceNameError = 'اكتب اسم الخدمة';
+  static const String servicePriceLabel = 'سعر الخدمة (د.ع)';
+  static const String serviceAdded = 'انضافت الخدمة ✅';
+  static const String serviceDeleted = 'انحذفت الخدمة ✅';
+  static const String deleteServiceTitle = 'حذف الخدمة';
+  static const String deleteServiceConfirm = 'متأكد تريد تحذف هالخدمة؟';
+  static const String noServicesYet =
+      'بعد ما ضفت خدمات — أضف خدمات مركزك حتى تظهر للزبائن';
 
   // لعبة ضربات الترجيح
   static const String gameTitle = 'ضربات الترجيح';

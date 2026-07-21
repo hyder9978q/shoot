@@ -148,6 +148,17 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
     _loadSlots();
   }
 
+  /// السعر المعروض بشريط الحجز — لمراكز العلاج: أرخص خدمة إذا موجودة
+  int get _startingPrice {
+    final field = widget.field;
+    if (field.sport.isSessionBased && field.services.isNotEmpty) {
+      return field.services
+          .map((s) => s.price)
+          .reduce((a, b) => a < b ? a : b);
+    }
+    return field.pricePerHour;
+  }
+
   /// اختيار الوقت مكتمل → نروح لشاشة تأكيد الحجز والدفع (٠٧ بالتصميم)
   Future<void> _confirmBooking() async {
     final slot = _selectedSlot;
@@ -209,7 +220,9 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      AppStrings.startsFrom,
+                      field.sport.isSessionBased
+                          ? AppStrings.sessionStartsFrom
+                          : AppStrings.startsFrom,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -221,7 +234,7 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          ArabicNum.money(field.pricePerHour),
+                          ArabicNum.money(_startingPrice),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
@@ -230,7 +243,9 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          AppStrings.perHourShort,
+                          field.sport.isSessionBased
+                              ? AppStrings.perSessionShort
+                              : AppStrings.perHourShort,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -246,8 +261,15 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                   child: SizedBox(
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: _confirmBooking,
-                      child: const Text(AppStrings.bookNow),
+                      // مغلق مؤقتاً من المالك؟ ما نستقبل حجوزات
+                      onPressed: field.isOpen ? _confirmBooking : null,
+                      child: Text(
+                        !field.isOpen
+                            ? AppStrings.fieldClosedBadge
+                            : field.sport.isSessionBased
+                                ? AppStrings.bookSession
+                                : AppStrings.bookNow,
+                      ),
                     ),
                   ),
                 ),
@@ -305,6 +327,42 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // الملعب مغلق مؤقتاً من المالك — شريط تنبيه واضح
+                  if (!field.isOpen) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.pause_circle_outline_rounded,
+                            size: 19,
+                            color: AppColors.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            AppStrings.fieldClosedBadge,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   // الاسم + صندوق التقييم
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,13 +399,12 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                                     ),
                                   ),
                                 ),
-                                if (field.hasLocation) ...[
+                                if (field.locationUrl.isNotEmpty) ...[
                                   const SizedBox(width: 10),
                                   Pressable(
+                                    // رابط المالك (خرائط گوگل) أولاً، وإلا الإحداثيات
                                     onTap: () => launchUrl(
-                                      Uri.parse(
-                                        'https://www.google.com/maps/search/?api=1&query=${field.lat},${field.lng}',
-                                      ),
+                                      Uri.parse(field.locationUrl),
                                       mode: LaunchMode.externalApplication,
                                     ),
                                     child: Row(
@@ -468,8 +525,28 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                       ],
                     ),
                   ],
-                  // اليوم والوقت
-                  const _SectionTitle(AppStrings.todaySlotsTitle),
+                  // الخدمات وأسعارها (مراكز العلاج خصوصاً)
+                  if (field.services.isNotEmpty) ...[
+                    const _SectionTitle(AppStrings.servicesTitle),
+                    for (final service in field.services)
+                      _ServiceRow(service: service),
+                  ],
+                  // بانر الصور الترويجية (عروض المالك)
+                  if (field.promoImageUrls.isNotEmpty) ...[
+                    const SizedBox(height: 22),
+                    _PromoBanner(field: field),
+                  ],
+                  // لقطات الملعب — صور وفيديوهات من مباريات الملعب
+                  if (field.highlights.isNotEmpty) ...[
+                    const _SectionTitle(AppStrings.fieldHighlightsTitle),
+                    _HighlightsRow(field: field),
+                  ],
+                  // اليوم والوقت — لمراكز العلاج: موعد الجلسة
+                  _SectionTitle(
+                    field.sport.isSessionBased
+                        ? AppStrings.sessionSlotsTitle
+                        : AppStrings.todaySlotsTitle,
+                  ),
                   SizedBox(
                     height: 62,
                     child: ListView.separated(
@@ -864,6 +941,193 @@ class _SlotChip extends StatelessWidget {
             decorationThickness: 2,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// سطر خدمة — الاسم يسار والسعر يمين داخل بطاقة خفيفة
+class _ServiceRow extends StatelessWidget {
+  const _ServiceRow({required this.service});
+
+  final VenueService service;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              service.name,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+          ),
+          Text(
+            '${ArabicNum.money(service.price)} ${AppStrings.iqd}',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// بانر الصور الترويجية — يمرّر أفقياً مع نقاط تحدد الصورة الحالية
+class _PromoBanner extends StatefulWidget {
+  const _PromoBanner({required this.field});
+
+  final Field field;
+
+  @override
+  State<_PromoBanner> createState() => _PromoBannerState();
+}
+
+class _PromoBannerState extends State<_PromoBanner> {
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final urls = widget.field.promoImageUrls;
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            height: 140,
+            width: double.infinity,
+            child: PageView.builder(
+              itemCount: urls.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (_, i) => FieldPhoto(
+                sport: widget.field.sport,
+                url: urls[i],
+              ),
+            ),
+          ),
+        ),
+        if (urls.length > 1) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < urls.length; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  width: i == _page ? 18 : 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: i == _page ? AppColors.primary : AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// صف لقطات الملعب — صور تنفتح مكبّرة، وفيديوهات تنفتح بتطبيقها
+class _HighlightsRow extends StatelessWidget {
+  const _HighlightsRow({required this.field});
+
+  final Field field;
+
+  void _openHighlight(BuildContext context, FieldHighlight highlight) {
+    if (highlight.isVideo) {
+      launchUrl(
+        Uri.parse(highlight.url),
+        mode: LaunchMode.externalApplication,
+      );
+      return;
+    }
+    // صورة: عرض مكبّر بسيط مع تقريب
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: InteractiveViewer(
+            child: FieldPhoto(sport: field.sport, url: highlight.url),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 110,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: field.highlights.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final highlight = field.highlights[i];
+          return Pressable(
+            onTap: () => _openHighlight(context, highlight),
+            child: SizedBox(
+              width: 150,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: highlight.isVideo
+                    ? Container(
+                        color: AppColors.inkFixed,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.play_circle_fill_rounded,
+                              size: 36,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              AppStrings.videoBadge,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : FieldPhoto(sport: field.sport, url: highlight.url),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

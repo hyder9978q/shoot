@@ -10,7 +10,7 @@ import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
-import 'field_photos_screen.dart';
+import 'field_manage_screen.dart';
 
 /// لوحة صاحب الملعب — أرباح اليوم والأسبوع + أوقات اليوم (شاشة ١١ بالتصميم)
 class OwnerDashboardScreen extends StatefulWidget {
@@ -460,10 +460,10 @@ class _OwnerFieldCard extends StatelessWidget {
   final List<TimeSlot> slots;
   final ValueChanged<Field> onFieldChanged;
 
-  void _openPhotos(BuildContext context) {
+  void _openManage(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => FieldPhotosScreen(
+        builder: (_) => FieldManageScreen(
           field: field,
           onChanged: onFieldChanged,
         ),
@@ -520,12 +520,12 @@ class _OwnerFieldCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // زر إدارة صور الملعب
+                // زر إدارة الملعب — معلومات ووسائط وطرق دفع
                 PositionedDirectional(
                   end: 10,
                   top: 10,
                   child: Pressable(
-                    onTap: () => _openPhotos(context),
+                    onTap: () => _openManage(context),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 11,
@@ -539,13 +539,13 @@ class _OwnerFieldCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.add_a_photo_rounded,
+                            Icons.settings_rounded,
                             size: 15,
                             color: AppColors.primaryDeep,
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            AppStrings.managePhotosAction,
+                            AppStrings.manageFieldAction,
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,

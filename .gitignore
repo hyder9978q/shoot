@@ -51,3 +51,6 @@ serviceAccount*.json
 tool/places.json
 tool/node_modules/
 tool/places.progress.json
+
+# golden test failure output
+test/tools/failures/

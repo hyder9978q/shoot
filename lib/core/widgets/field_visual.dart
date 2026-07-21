@@ -34,12 +34,16 @@ class _FieldVisualPainter extends CustomPainter {
     Sport.swimming => const [Color(0xFF22D3EE), Color(0xFF0B4A6F)],
     Sport.gym => const [Color(0xFF475569), Color(0xFF1E293B)],
     Sport.volleyball => const [Color(0xFFD97706), Color(0xFF7C3F0A)],
+    Sport.therapy => const [Color(0xFF2DD4BF), Color(0xFF0F5C54)],
     _ => const [Color(0xFF16A34A), Color(0xFF0B5D2B)],
   };
 
   /// أشرطة قص العشب — بس للملاعب العشبية
   bool get _hasMowStripes => switch (sport) {
-    Sport.swimming || Sport.gym || Sport.volleyball => false,
+    Sport.swimming ||
+    Sport.gym ||
+    Sport.volleyball ||
+    Sport.therapy => false,
     _ => true,
   };
 
@@ -92,6 +96,8 @@ class _FieldVisualPainter extends CustomPainter {
         _pool(canvas, size, line);
       case Sport.gym:
         _gym(canvas, size, line);
+      case Sport.therapy:
+        _therapy(canvas, size, line);
     }
 
     // إضاءة خفيفة من الأعلى + تعتيم بسيط بالأسفل يعطي عمق
@@ -322,6 +328,68 @@ class _FieldVisualPainter extends CustomPainter {
         );
       }
     }
+  }
+
+  /// مركز العلاج — سرير علاج (تخت مساج) وصليب طبي بزاوية الغرفة
+  void _therapy(Canvas canvas, Size size, Paint line) {
+    final b = _bounds(size);
+    final c = b.center;
+
+    // حدود الغرفة
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(b, Radius.circular(size.shortestSide * 0.04)),
+      line,
+    );
+
+    // سرير العلاج — مستطيل بوسادة بالمنتصف
+    final bed = Rect.fromCenter(
+      center: c,
+      width: b.width * 0.44,
+      height: b.height * 0.34,
+    );
+    final bedPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = line.strokeWidth * 1.3
+      ..color = Colors.white.withValues(alpha: 0.70);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bed, Radius.circular(bed.height * 0.22)),
+      bedPaint,
+    );
+    // الوسادة
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(bed.left + bed.width * 0.16, c.dy),
+          width: bed.width * 0.18,
+          height: bed.height * 0.56,
+        ),
+        Radius.circular(bed.height * 0.12),
+      ),
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+
+    // صليب طبي بأعلى الزاوية
+    final crossC = Offset(
+      b.right - b.width * 0.13,
+      b.top + b.height * 0.2,
+    );
+    final arm = size.shortestSide * 0.052;
+    final thickness = arm * 0.62;
+    final cross = Paint()..color = Colors.white.withValues(alpha: 0.75);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: crossC, width: arm * 2, height: thickness),
+        Radius.circular(thickness * 0.3),
+      ),
+      cross,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: crossC, width: thickness, height: arm * 2),
+        Radius.circular(thickness * 0.3),
+      ),
+      cross,
+    );
   }
 
   @override

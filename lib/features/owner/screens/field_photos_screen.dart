@@ -100,6 +100,29 @@ class _FieldPhotosScreenState extends State<FieldPhotosScreen> {
     }
   }
 
+  /// سحب وإفلات لإعادة ترتيب الصور — أول صورة تصير الغلاف
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    final photos = List.of(_field.imageUrls);
+    final moved = photos.removeAt(oldIndex);
+    photos.insert(newIndex, moved);
+
+    // نعرض الترتيب الجديد فوراً، وإذا فشل الحفظ نرجّع القديم
+    final before = _field;
+    setState(() => _field = _field.copyWith(imageUrls: photos));
+    try {
+      final updated =
+          await FieldsService.instance.reorderFieldPhotos(before, photos);
+      if (!mounted) return;
+      setState(() => _field = updated);
+      widget.onChanged?.call(updated);
+      _snack(AppStrings.photosReordered);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _field = before);
+      _snack(AppStrings.infoSaveError);
+    }
+  }
+
   void _snack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -145,28 +168,50 @@ class _FieldPhotosScreenState extends State<FieldPhotosScreen> {
       ),
       body: photos.isEmpty
           ? _EmptyPhotos(busy: _busy)
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
+          : Column(
               children: [
-                Text(
-                  '${ArabicNum.count(photos.length)} ${AppStrings.photosCountLabel}',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.grey,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${ArabicNum.count(photos.length)} ${AppStrings.photosCountLabel} — ${AppStrings.reorderPhotosHint}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.grey,
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                for (final (i, url) in photos.indexed)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _PhotoTile(
-                      sport: _field.sport,
-                      url: url,
-                      isCover: i == 0,
-                      onDelete: _busy ? null : () => _deletePhoto(url),
+                Expanded(
+                  child: ReorderableListView.builder(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+                    itemCount: photos.length,
+                    onReorderItem: _busy ? (_, _) {} : _reorder,
+                    proxyDecorator: (child, _, _) => Material(
+                      color: Colors.transparent,
+                      child: child,
                     ),
+                    itemBuilder: (context, i) {
+                      final url = photos[i];
+                      return Padding(
+                        key: ValueKey(url),
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _PhotoTile(
+                          sport: _field.sport,
+                          url: url,
+                          isCover: i == 0,
+                          onDelete: _busy ? null : () => _deletePhoto(url),
+                        ),
+                      );
+                    },
                   ),
+                ),
               ],
             ),
     );

@@ -10,6 +10,9 @@ class LocalStore {
   static const String _kSignedIn = 'signed_in';
   static const String _kUserName = 'user_name';
   static const String _kThemeDark = 'theme_dark';
+  static const String _kNotifyBookingConfirm = 'notify_booking_confirm';
+  static const String _kNotifyReminder = 'notify_reminder';
+  static const String _kNotifyPlayerRequests = 'notify_player_requests';
 
   static Future<SharedPreferences?> get _prefs async {
     try {
@@ -41,5 +44,28 @@ class LocalStore {
 
   static Future<void> setThemeDark(bool value) async {
     await (await _prefs)?.setBool(_kThemeDark, value);
+  }
+
+  /// تفضيلات الإشعارات — الافتراضي كله مفعّل. هسه بس نحفظ التفضيل
+  /// (الإشعارات الفعلية بعدها ما مفعّلة بالتطبيق).
+  static Future<bool> get notifyBookingConfirm async =>
+      (await _prefs)?.getBool(_kNotifyBookingConfirm) ?? true;
+
+  static Future<void> setNotifyBookingConfirm(bool value) async {
+    await (await _prefs)?.setBool(_kNotifyBookingConfirm, value);
+  }
+
+  static Future<bool> get notifyReminder async =>
+      (await _prefs)?.getBool(_kNotifyReminder) ?? true;
+
+  static Future<void> setNotifyReminder(bool value) async {
+    await (await _prefs)?.setBool(_kNotifyReminder, value);
+  }
+
+  static Future<bool> get notifyPlayerRequests async =>
+      (await _prefs)?.getBool(_kNotifyPlayerRequests) ?? true;
+
+  static Future<void> setNotifyPlayerRequests(bool value) async {
+    await (await _prefs)?.setBool(_kNotifyPlayerRequests, value);
   }
 }

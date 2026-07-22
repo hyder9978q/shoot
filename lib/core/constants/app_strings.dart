@@ -539,4 +539,73 @@ class AppStrings {
   static const String joinRequestError =
       'ما گدرنا نسجّل انضمامك، جرّب مرة ثانية';
   static const String joinRequestSuccess = 'سجّلنا إنك جاي — عاشت إيدك 👏';
+
+  // الإعدادات
+  static const String settingsTitle = 'الإعدادات';
+  static const String settingsAccountSection = 'الحساب';
+  static const String settingsNameLabel = 'الاسم';
+  static const String settingsCityLabel = 'المدينة';
+  static const String settingsPhotoLabel = 'الصورة';
+  static const String settingsPhoneLabel = 'رقم الهاتف';
+  static const String editNameTitle = 'عدّل اسمك';
+  static const String nameSavedMsg = 'تحدّث اسمك ✅';
+  static const String nameEmptyError = 'اكتب اسمك';
+  static const String save = 'احفظ';
+
+  static const String settingsAppearanceSection = 'المظهر';
+  static const String settingsDarkModeLabel = 'الوضع الليلي';
+  static const String settingsDarkModeHint = 'خلفية غامقة تريح العين بالليل';
+
+  static const String settingsNotificationsSection = 'الإشعارات';
+  static const String notifyBookingConfirmLabel = 'تأكيد الحجز';
+  static const String notifyBookingConfirmHint =
+      'إشعار لما ينحجز أو ينلغى حجزك';
+  static const String notifyReminderLabel = 'تذكير قبل الموعد';
+  static const String notifyReminderHint = 'تذكير قبل وكت لعبتك بشوي';
+  static const String notifyPlayerRequestsLabel = 'طلبات ناقصنا لاعب';
+  static const String notifyPlayerRequestsHint =
+      'إشعار لما حد يريد ينضم لإعلانك';
+
+  static const String settingsAboutSection = 'عن التطبيق والدعم';
+  static const String contactSupportLabel = 'تواصل مع الدعم';
+  static const String contactSupportHint = 'راسلنا بالواتساب لأي استفسار';
+  static const String supportWhatsappMessage = 'هلا، أحتاج مساعدة بتطبيق شوت 🙏';
+  static const String privacyPolicyLabel = 'سياسة الخصوصية';
+  static const String termsOfUseLabel = 'شروط الاستخدام';
+  static const String appVersionLabel = 'رقم الإصدار';
+  static const String appVersionNumber = '1.0.0';
+
+  static const String privacyPolicyTitle = 'سياسة الخصوصية';
+  static const String privacyPolicyBody = '''
+نحترم خصوصيتك، وهذي وياك خلاصة شنو نجمع وشلون نستخدمه:
+
+• المعلومات اللي نجمعها: رقم هاتفك (لتسجيل الدخول برمز التحقق)، اسمك، مدينتك، صورة ملفك الشخصي (إذا رفعتها)، وبيانات حجوزاتك وتقييماتك داخل التطبيق.
+
+• شلون نستخدمها: نستخدم بياناتك حتى نسجّل حجوزاتك، نربطك بالملاعب واللاعبين الثانين (مثلاً بترتيب الحي أو "ناقصنا لاعب")، ونحسّن خدمة التطبيق.
+
+• المشاركة: ما نبيع ولا نشارك بياناتك مع طرف ثالث لأغراض تجارية. اسمك ومدينتك وصورتك تظهر بشكل عام للاعبين الثانين (بترتيب الحي وملفك العام)، أما رقم هاتفك يبقى خاص وما يظهر إلا للملعب اللي تحجز عنده.
+
+• التخزين: بياناتك تنخزن بخدمات آمنة (Firebase وSupabase) وتنحمي حسب صلاحيات وصول محدودة.
+
+• حقوقك: تگدر تعدّل اسمك ومدينتك وصورتك بأي وقت من هذي الشاشة، وتگدر تطلب حذف حسابك وبياناتك بالتواصل وياتنا عبر الدعم.
+
+هذا نص مبدئي وممكن يتحدث مع تطور التطبيق.
+''';
+
+  static const String termsOfUseTitle = 'شروط الاستخدام';
+  static const String termsOfUseBody = '''
+باستخدامك تطبيق شوت، انت توافق على:
+
+• التطبيق وسيط يربطك بالملاعب والمنشآت الرياضية — الحجز والدفع والالتزام بالمواعيد مسؤولية مشتركة بينك وبين الملعب.
+
+• العربون يتأكد الحجز ويضمن إلك الوقت، والباقي (إذا موجود) يُدفع بالملعب مباشرة حسب طريقة الدفع اللي يحددها الملعب.
+
+• الإلغاء: تگدر تلغي حجزك من "حجوزاتي"، وإذا الملعب ألغى حجزك مو بذنبك، نوفّرلك بديل وضمان حجز بدون عربون.
+
+• عليك تستخدم بيانات صحيحة (اسمك ورقمك) وتتجنب أي إزعاج أو تصرف غير لائق تجاه اللاعبين أو أصحاب الملاعب عبر ميزة "ناقصنا لاعب" أو التقييمات.
+
+• التطبيق ما يتحمّل مسؤولية أي نزاع مباشر بينك وبين الملعب أو لاعب ثاني خارج نطاق ميزات الحجز نفسها.
+
+• هذي الشروط ممكن تتحدث مع تطور التطبيق، وأي تحديث مهم راح نخبرك بيه.
+''';
 }

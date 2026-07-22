@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/models/field.dart';
@@ -29,7 +30,11 @@ import '../profile/screens/favorites_screen.dart';
 import '../profile/screens/leaderboard_screen.dart';
 import '../profile/screens/my_reviews_screen.dart';
 import '../profile/screens/player_profile_screen.dart';
+import '../profile/screens/settings_screen.dart';
 import '../splash/splash_screen.dart';
+
+/// رقم واتساب الدعم — نفس رقم شاشة الإعدادات
+const String _supportPhone = '+9647701234567';
 
 /// الهيكل الرئيسي — تبويبات سفلية: الرئيسية، حجوزاتي، ناقصنا لاعب، حسابي
 class MainShell extends StatefulWidget {
@@ -405,13 +410,19 @@ class _ProfileTabState extends State<_ProfileTab> {
                       _ProfileItem(
                         icon: Icons.settings_rounded,
                         label: 'الإعدادات',
-                        onTap: () => _soon(context),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsScreen(),
+                            ),
+                          );
+                        },
                       ),
                       _ProfileItem(
                         icon: Icons.headset_mic_rounded,
                         label: 'تواصل ويانا',
                         last: true,
-                        onTap: () => _soon(context),
+                        onTap: _contactSupport,
                       ),
                     ],
                   ),
@@ -454,10 +465,14 @@ class _ProfileTabState extends State<_ProfileTab> {
     );
   }
 
-  void _soon(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text(AppStrings.comingSoon)));
+  Future<void> _contactSupport() async {
+    final phone = _supportPhone.replaceAll('+', '');
+    await launchUrl(
+      Uri.parse(
+        'https://wa.me/$phone?text=${Uri.encodeComponent(AppStrings.supportWhatsappMessage)}',
+      ),
+      mode: LaunchMode.externalApplication,
+    );
   }
 }
 

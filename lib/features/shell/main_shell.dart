@@ -133,6 +133,17 @@ class _ProfileTabState extends State<_ProfileTab> {
     super.initState();
     _loadMyFields();
     _loadCounts();
+    // نستمع تحديثات الحجوزات والتقييمات حتى الأرقام تتحدث لحظياً بدل
+    // ما تضل ثابتة إلى ما يعاد بناء التبويب (IndexedStack يحافظ عليه حي)
+    BookingsService.instance.revision.addListener(_loadCounts);
+    ReviewsService.instance.revision.addListener(_loadCounts);
+  }
+
+  @override
+  void dispose() {
+    BookingsService.instance.revision.removeListener(_loadCounts);
+    ReviewsService.instance.revision.removeListener(_loadCounts);
+    super.dispose();
   }
 
   Future<void> _loadMyFields() async {

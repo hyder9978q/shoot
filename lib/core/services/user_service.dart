@@ -113,6 +113,12 @@ class UserService {
           // فشل التسجيل ما يكسر التحميل — نحاول مرة ثانية بأول تحميل جاي
         }
       }
+
+      // يصلح مجموعة players العامة لو ناقصة اسم/مدينة/صورة موجودة أصلاً
+      // بمستند users الخاص — يشمل الحسابات اللي سجّلت قبل هالميزة وما
+      // انبنى لهم سجل عام أبداً (كانوا يبينون "ضيف" بترتيب الحي رغم
+      // إن عندهم اسم حقيقي).
+      await _backfillPublicProfile();
     } catch (_) {
       // بدون نت: نرجع للاسم المحفوظ محلياً — التطبيق يشتغل طبيعي
       if (_name.isEmpty) _name = await LocalStore.userName;
@@ -241,6 +247,33 @@ class UserService {
           .timeout(const Duration(seconds: 10));
     } catch (_) {
       // ملفي الخاص انحفظ بنجاح — النسخة العامة تتحدث بمحاولة جايه
+    }
+  }
+
+  /// يصلح سجل players العام لو ناقص اسم/مدينة/صورة موجودة أصلاً بمستند
+  /// users الخاص — لحسابات سجّلت قبل ما تنبنى مجموعة players، فكانت
+  /// تبين "ضيف" بترتيب الحي رغم إن عندها اسم حقيقي. بأفضل جهد.
+  Future<void> _backfillPublicProfile() async {
+    try {
+      final publicSnapshot = await _publicDoc.get().timeout(
+        const Duration(seconds: 10),
+      );
+      final publicData = publicSnapshot.data();
+      final missing = <String, Object?>{
+        if (_name.isNotEmpty && (publicData?['name'] as String? ?? '').isEmpty)
+          'name': _name,
+        if (_city.isNotEmpty && (publicData?['city'] as String? ?? '').isEmpty)
+          'city': _city,
+        if (_photoUrl.isNotEmpty &&
+            (publicData?['photoUrl'] as String? ?? '').isEmpty)
+          'photoUrl': _photoUrl,
+      };
+      if (missing.isEmpty) return;
+      await _publicDoc
+          .set(missing, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // فشل الإصلاح ما يكسر التحميل — يعاود المحاولة أول تحميل جاي
     }
   }
 

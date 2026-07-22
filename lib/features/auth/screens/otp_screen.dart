@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/services/app_mode.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -82,8 +83,7 @@ class _OtpScreenState extends State<OtpScreen> {
       final firstTime = UserService.instance.name.isEmpty;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) =>
-              firstTime ? const NameScreen() : const MainShell(),
+          builder: (_) => firstTime ? const NameScreen() : const MainShell(),
         ),
         (route) => false,
       );
@@ -98,14 +98,14 @@ class _OtpScreenState extends State<OtpScreen> {
       await AuthService.instance.sendOtp(widget.phone);
       if (!mounted) return;
       _startResendTimer();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.codeSentAgain)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.codeSentAgain)));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.otpSendError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.otpSendError)));
     }
   }
 
@@ -192,8 +192,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          decoration:
-                              const InputDecoration(counterText: ''),
+                          decoration: const InputDecoration(counterText: ''),
                           onSubmitted: (_) => _verify(),
                         ),
                       ),
@@ -235,23 +234,26 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
               ],
               const SizedBox(height: 16),
-              // ملاحظة التجربة — تنشال من نفعّل الرسائل الحقيقية
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
+              // ملاحظة التجربة — تبين بوضع التجربة بس، ما تبين إطلاقاً
+              // بالإنتاج الحقيقي (رمز 123456 أصلاً ما يشتغل هناك)
+              if (AppMode.isMock) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    AppStrings.otpDevHint,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.dark,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-                child: Text(
-                  AppStrings.otpDevHint,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.dark,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-              const SizedBox(height: 22),
+                const SizedBox(height: 22),
+              ],
               // عدّاد إعادة الإرسال — نص وسط زي التصميم
               Center(
                 child: _resendSeconds > 0
@@ -351,17 +353,17 @@ class _OtpBox extends StatelessWidget {
         color: hasError
             ? AppColors.errorSoft
             : filled
-                ? AppColors.primaryTint
-                : active
-                    ? AppColors.surface
-                    : AppColors.panel,
+            ? AppColors.primaryTint
+            : active
+            ? AppColors.surface
+            : AppColors.panel,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: hasError
               ? AppColors.error
               : filled || active
-                  ? AppColors.primary
-                  : AppColors.border,
+              ? AppColors.primary
+              : AppColors.border,
           width: 2,
         ),
       ),

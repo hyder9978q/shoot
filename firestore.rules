@@ -20,6 +20,10 @@ service cloud.firestore {
           && (!keys.hasAny(['city'])
                 || (d.city is string && d.city.size() > 0
                     && d.city.size() <= 30))
+          && (!keys.hasAny(['sport'])
+                || d.sport in ['football', 'padel', 'basketball', 'tennis',
+                               'volleyball', 'swimming', 'gym',
+                               'sportsCentre', 'therapy'])
           && (!keys.hasAny(['pricePerHour'])
                 || (d.pricePerHour is int && d.pricePerHour >= 0
                     && d.pricePerHour <= 1000000))
@@ -32,6 +36,15 @@ service cloud.firestore {
                 || (d.mapsUrl is string && d.mapsUrl.size() <= 500
                     && (d.mapsUrl == ''
                         || d.mapsUrl.matches('https://.*'))))
+          // قوائم الصور/الهايلايتس: نوع وحد أقصى للطول — تفاصيل كل عنصر
+          // (رابط https صالح) يتحقق منها التطبيق قبل الرفع؛ قواعد
+          // Firestore ما تگدر تتحقق من كل عنصر بقائمة بدون تكرار (loop)
+          && (!keys.hasAny(['imageUrls'])
+                || (d.imageUrls is list && d.imageUrls.size() <= 20))
+          && (!keys.hasAny(['promoImageUrls'])
+                || (d.promoImageUrls is list && d.promoImageUrls.size() <= 20))
+          && (!keys.hasAny(['highlights'])
+                || (d.highlights is list && d.highlights.size() <= 20))
           && (!keys.hasAny(['paymentDeposit', 'paymentCashOnArrival',
                             'zainCashEnabled', 'zainCashMerchantId'])
                 || (d.paymentDeposit is bool
@@ -73,11 +86,26 @@ service cloud.firestore {
                .data.ownerId == request.auth.uid;
       }
 
+      // معرّف المستند لازم يطابق fieldId_date_hour فعلاً — بدون هذا الفحص
+      // يگدر عميل مفبرك يختار معرّف عشوائي فيلتف حول منع الحجز المزدوج
+      function validBookingId() {
+        let d = request.resource.data;
+        return d.fieldId is string && d.date is string && d.hour is int
+          && bookingId == d.fieldId + '_' + d.date + '_' + string(d.hour);
+      }
+
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userPhone == request.auth.token.phone_number
+        && validBookingId();
+      // بعد الإنشاء: يتحدث فقط ما عدا الحقول اللي تحدد الحجز وقيمته
+      // المالية — هذي ثابتة للأبد حتى ما تنفتح ثغرة "نقل" حجز أو تلاعب
+      // بالعربون بعد الحجز
       allow update: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+        && resource.data.userId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['fieldId', 'date', 'hour', 'deposit', 'depositWaived']);
       allow delete: if request.auth != null
         && (resource.data.userId == request.auth.uid
             || isFieldOwner(resource.data.fieldId));
@@ -96,12 +124,25 @@ service cloud.firestore {
                .data.ownerId == request.auth.uid;
       }
 
+      // معرّف السجل نفس معرّف الحجز الملغى — نتأكد إن هذا الحجز كان
+      // موجود فعلاً وتابع لنفس الملعب ونفس اللاعب المذكور بالسجل، حتى
+      // ما يگدر مالك يفبرك سجل إلغاء بحق لاعب ما حجز عنده أصلاً
+      // (الحجز يبقى موجود وقت الكتابة — السجل يُكتب قبل حذف الحجز)
+      function realBooking(fieldId, playerId) {
+        return exists(/databases/$(database)/documents/bookings/$(cancellationId))
+          && get(/databases/$(database)/documents/bookings/$(cancellationId))
+               .data.fieldId == fieldId
+          && get(/databases/$(database)/documents/bookings/$(cancellationId))
+               .data.userId == playerId;
+      }
+
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.ownerId == request.auth.uid
         && ownsField(request.resource.data.fieldId)
         && request.resource.data.playerId is string
         && request.resource.data.playerId != request.auth.uid
+        && realBooking(request.resource.data.fieldId, request.resource.data.playerId)
         && request.resource.data.reason is string
         && request.resource.data.reason.size() <= 120
         && request.resource.data.seen == false
@@ -115,10 +156,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ملف المستخدم (الاسم والمفضلة): صاحبه فقط يقرأ ويكتب
+    // ملف المستخدم (الاسم والمفضلة): صاحبه فقط يقرأ ويكتب.
+    // createdAt يتثبت أول مرة وما يتغيّر بعدها (نفس نمط مجموعة players)
+    // حتى ما يگدر المستخدم يزوّر مدة عضويته المعروضة له.
     match /users/{userId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && (!request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['createdAt'])
+            || !('createdAt' in resource.data));
+      allow delete: if false;
     }
 
     // التقييمات: أي مسجّل يقراها، وصاحب التقييم فقط ينشر/يعدّل/يحذف
@@ -130,7 +179,9 @@ service cloud.firestore {
         && reviewId == request.resource.data.fieldId + '_' + request.auth.uid
         && request.resource.data.rating is int
         && request.resource.data.rating >= 1
-        && request.resource.data.rating <= 5;
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 200;
       allow delete: if request.auth != null
         && resource.data.userId == request.auth.uid;
     }
@@ -139,7 +190,12 @@ service cloud.firestore {
     match /playerRequests/{requestId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.phone == request.auth.token.phone_number
+        && request.resource.data.place is string
+        && request.resource.data.place.size() <= 50
+        && request.resource.data.note is string
+        && request.resource.data.note.size() <= 100;
       allow update, delete: if request.auth != null
         && resource.data.userId == request.auth.uid;
     }

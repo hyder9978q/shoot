@@ -28,7 +28,8 @@ class AppStrings {
   static const String otpTitle = 'دخّل رمز التحقق';
   static const String otpSubtitle = 'دزينا رمز من 6 أرقام على الرقم:';
   static const String otpError = 'الرمز غلط، جرّب مرة ثانية';
-  static const String otpDevHint = 'للتجربة هسه: الرمز هو 123456\n(بعدين يوصلك SMS حقيقي)';
+  static const String otpDevHint =
+      'للتجربة هسه: الرمز هو 123456\n(بعدين يوصلك SMS حقيقي)';
   static const String resendCode = 'ما وصلك؟ دزلي مرة ثانية';
   static const String resendIn = 'إعادة الإرسال خلال';
   static const String codeSentAgain = 'دزيناه من جديد ✅';
@@ -203,8 +204,7 @@ class AppStrings {
   static const String reviewCommentHint = 'شلون كانت تجربتك؟ (اختياري)';
   static const String submitReview = 'انشر التقييم';
   static const String reviewSaved = 'تم حفظ تقييمك ⭐ شكراً!';
-  static const String reviewError =
-      'ما گدرنا نحفظ التقييم 😕 جرّب مرة ثانية';
+  static const String reviewError = 'ما گدرنا نحفظ التقييم 😕 جرّب مرة ثانية';
   static const String noReviewsYet =
       'بعد ماكو تقييمات — كن أول واحد يقيّم هذا الملعب!';
   static const String myReviewsTitle = 'تقييماتي';
@@ -253,7 +253,8 @@ class AppStrings {
   static const String deletePhotoTitle = 'حذف الصورة';
   static const String deletePhotoConfirm = 'متأكد تريد تحذف هالصورة؟';
   static const String photoDeleted = 'انحذفت الصورة ✅';
-  static const String photoDeleteError = 'ما گدرنا نحذف الصورة 😕 جرّب مرة ثانية';
+  static const String photoDeleteError =
+      'ما گدرنا نحذف الصورة 😕 جرّب مرة ثانية';
   static const String photosNeedLiveApp =
       'رفع الصور يشتغل بالتطبيق المنشور فقط — مو بوضع التجربة المحلي.';
   static const String photoInvalidType =
@@ -317,7 +318,8 @@ class AppStrings {
   static const String paymentsHint =
       'اختار شلون يدفعون الزبائن بملعبك — لازم تبقى طريقة وحدة على الأقل';
   static const String payDepositOption = 'عربون بالتطبيق';
-  static const String payDepositDesc = 'الزبون يدفع عربون ويكمّل الباقي بالملعب';
+  static const String payDepositDesc =
+      'الزبون يدفع عربون ويكمّل الباقي بالملعب';
   static const String payCashOption = 'كاش عند الوصول';
   static const String payCashDesc = 'الزبون يدفع كامل المبلغ بالملعب';
   static const String zainCashSection = 'بوابة زين كاش';
@@ -455,8 +457,7 @@ class AppStrings {
   static String guaranteedCreditsCount(String count) =>
       'عندك $count حجز مضمون بدون عربون';
   static const String myCancellationsTitle = 'إلغاءات مو بذنبك';
-  static const String myCancellationsEmpty =
-      'ما عندك أي إلغاء — عاشت إيدك 👏';
+  static const String myCancellationsEmpty = 'ما عندك أي إلغاء — عاشت إيدك 👏';
   static const String notMyFaultLabel = 'إلغاء مو بذنبك';
   static const String compensatedLabel = 'استخدمت الضمان ✅';
 
@@ -473,4 +474,39 @@ class AppStrings {
   static const String loading = 'لحظة...';
   static const String retry = 'جرّب مرة ثانية';
   static const String comingSoon = 'قريباً إن شاء الله';
+
+  // ملفي وإحصائياتي
+  static const String myProfileItem = 'ملفي وإحصائياتي';
+  static const String playerProfileTitle = 'ملف اللاعب';
+  static const String matchesPlayedWord = 'مباراة';
+  static const String gapsFilledWord = 'مرة كمّل نقص';
+  static const String noCityYet = 'ما حددت مدينتك بعد';
+  static const String pickCity = 'اختار مدينتك';
+  static const String chooseCityTitle = 'اختار مدينتك';
+  static const String citySavedMsg = 'تحدّثت مدينتك ✅';
+  static const String changePhoto = 'غيّر الصورة';
+  static const String photoSaved = 'تحدّثت الصورة ✅';
+  static const String badgesTitle = 'الشارات';
+  static const String badgeLocked = 'ما حصّلتها بعد';
+  static const String profileLoadError = 'ما گدرنا نجيب بيانات الملف';
+
+  // ترتيب الحي/المدينة
+  static const String leaderboardItem = 'ترتيب اللاعبين';
+  static const String leaderboardTitle = 'ترتيب حيّك';
+  static String leaderboardSubtitle(String city) =>
+      'أنشط اللاعبين بـ$city هذا الشهر';
+  static const String leaderboardNeedsCity =
+      'حدد مدينتك حتى نطلعلك ترتيبك بيها';
+  static const String leaderboardEmpty =
+      'ما بيه لاعبين نشيطين هذا الشهر بعد — كن أول وحد 🏆';
+  static String yourRank(String rank) => 'ترتيبك: #$rank';
+  static const String notRankedYet = 'ما لعبت هذا الشهر بعد بهذي المدينة';
+
+  // انضمام "ناقصنا لاعب"
+  static const String joinRequest = 'أني أجي 🙋';
+  static const String joinedRequest = '✓ آني جاي';
+  static const String withdrawnMsg = 'سحبنا تسجيلك';
+  static const String joinRequestError =
+      'ما گدرنا نسجّل انضمامك، جرّب مرة ثانية';
+  static const String joinRequestSuccess = 'سجّلنا إنك جاي — عاشت إيدك 👏';
 }

@@ -56,4 +56,25 @@ class DateLabels {
     const short = ['إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت', 'أحد'];
     return short[parsed.weekday - 1];
   }
+
+  /// أول يوم بالشهر الحالي بصيغة yyyy-MM-dd — لحساب "هذا الشهر" بترتيب الحي
+  static String monthStart() {
+    final d = debugNow ?? DateTime.now();
+    final m = d.month.toString().padLeft(2, '0');
+    return '${d.year}-$m-01';
+  }
+
+  /// نص "عضو منذ..." من وقت إنشاء الحساب بالميلي ثانية
+  static String membershipLabel(int joinedAtMs) {
+    final now = debugNow ?? DateTime.now();
+    final joined = DateTime.fromMillisecondsSinceEpoch(joinedAtMs);
+    final days = now.difference(joined).inDays;
+    if (days < 1) return 'عضو اليوم';
+    if (days < 30) return 'عضو منذ $days يوم';
+    if (days < 365) return 'عضو منذ ${days ~/ 30} شهر';
+    final years = days ~/ 365;
+    final months = (days % 365) ~/ 30;
+    if (months == 0) return 'عضو منذ $years سنة';
+    return 'عضو منذ $years سنة و$months شهر';
+  }
 }

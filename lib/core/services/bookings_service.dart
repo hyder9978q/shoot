@@ -26,11 +26,14 @@ class BookingsService {
   /// حجوزات وضع الاختبار (بدون Firebase)
   final List<Booking> _mockBookings = [];
 
+  /// إلغاءات ذاتية بوضع الاختبار — عنصر لكل مرة اللاعب لغى حجزه بنفسه
+  /// (نفس معرّف اللاعب يتكرر حسب عدد المرات؛ يكفي للعدّ بشارة "ملتزم")
+  final List<String> _mockSelfCancellations = [];
+
   bool get _useMock => Firebase.apps.isEmpty;
 
-  String get _uid => _useMock
-      ? 'mock-user'
-      : FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _uid =>
+      _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';
 
   /// رقم اللاعب — ينحفظ بالحجز حتى صاحب الملعب يوصله لو اضطر يلغي
   String get _phone => _useMock
@@ -49,7 +52,8 @@ class BookingsService {
         for (var h = field.openHour; h < field.closeHour; h++)
           TimeSlot(
             hour: h,
-            isBooked: (isToday && h % 3 == 0) ||
+            isBooked:
+                (isToday && h % 3 == 0) ||
                 _mockBookings.any(
                   (b) => b.fieldId == field.id && b.date == date && b.hour == h,
                 ),
@@ -91,8 +95,7 @@ class BookingsService {
             for (var h = f.openHour; h < f.closeHour; h++)
               if (h % 3 == 0 ||
                   _mockBookings.any(
-                    (b) =>
-                        b.fieldId == f.id && b.date == date && b.hour == h,
+                    (b) => b.fieldId == f.id && b.date == date && b.hour == h,
                   ))
                 h,
           },
@@ -188,10 +191,8 @@ class BookingsService {
       await FirebaseFirestore.instance
           .collection('bookings')
           .doc(booking.id)
-          .set({
-        ...booking.toMap(),
-        'createdAt': FieldValue.serverTimestamp(),
-      }).timeout(const Duration(seconds: 15));
+          .set({...booking.toMap(), 'createdAt': FieldValue.serverTimestamp()})
+          .timeout(const Duration(seconds: 15));
     } on FirebaseException catch (e) {
       // قواعد الحماية ترفض الكتابة فوق حجز شخص ثاني
       if (e.code == 'permission-denied' || e.code == 'already-exists') {
@@ -251,9 +252,7 @@ class BookingsService {
     // دفعة ناقصة = وصلنا للنهاية
     _hasMore = docs.length == pageSize;
 
-    return [
-      for (final doc in docs) Booking.fromMap(doc.id, doc.data()),
-    ];
+    return [for (final doc in docs) Booking.fromMap(doc.id, doc.data())];
   }
 
   /// الملاعب المحجوزة بتاريخ وساعة معيّنة — يستخدمها بحث البدائل
@@ -328,15 +327,36 @@ class BookingsService {
     }
   }
 
-  /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين
+  /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين.
+  ///
+  /// قبل الحذف نسجّل دليل دائم بمجموعة playerCancellations — منه تنحسب
+  /// شارة "ملتزم" لاحقاً (ما ألغى ولا حجز بنفسه). التسجيل بأفضل جهد:
+  /// فشله ما يمنع تحرير الوقت، لأن هذا هو المطلب الأساسي للمستخدم.
   Future<void> cancelBooking(Booking booking) async {
     // إلغاء نفس الحجز جاري؟ ما نكرر العملية
     if (!_cancelling.add(booking.id)) return;
     try {
       if (_useMock) {
         _mockBookings.removeWhere((b) => b.id == booking.id);
+        _mockSelfCancellations.add(booking.userId);
         revision.value++;
         return;
+      }
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('playerCancellations')
+            .doc(booking.id)
+            .set({
+              'userId': booking.userId,
+              'fieldId': booking.fieldId,
+              'date': booking.date,
+              'hour': booking.hour,
+              'cancelledAtMs': DateTime.now().millisecondsSinceEpoch,
+            })
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // فشل السجل ما يوقف الإلغاء — الشارة بس تفوتها دقّة إضافية
       }
 
       await FirebaseFirestore.instance
@@ -348,5 +368,116 @@ class BookingsService {
     } finally {
       _cancelling.remove(booking.id);
     }
+  }
+
+  // ---------- إحصائيات اللاعب (لملفه الشخصي وترتيب الحي) ----------
+  //
+  // كل رقم هنا محسوب من مستندات حقيقية بـ Firestore عبر عدّ مجمّع
+  // (count) — أرخص من جلب المستندات ومستحيل تزويره من التطبيق،
+  // لأن العميل ما يگدر يكتب هذا الرقم مباشرة بأي مكان.
+
+  /// عدد المباريات المكتملة: حجوزات بتاريخ اليوم أو قبله
+  Future<int> matchesPlayedCount(String uid) async {
+    final today = todayDate();
+    if (_useMock) {
+      return _mockBookings
+          .where((b) => b.userId == uid && b.date.compareTo(today) <= 0)
+          .length;
+    }
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('userId', isEqualTo: uid)
+          .where('date', isLessThanOrEqualTo: today)
+          .count()
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return snap.count ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// كل حجوزات اللاعب الحالية (ماضية ومستقبلية) — لإثبات إنه حجز ولو مرة
+  Future<int> totalBookingsCount(String uid) async {
+    if (_useMock) {
+      return _mockBookings.where((b) => b.userId == uid).length;
+    }
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('userId', isEqualTo: uid)
+          .count()
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return snap.count ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// عدد مرات إلغاء اللاعب حجزه بنفسه (لشارة "ملتزم")
+  Future<int> selfCancellationsCount(String uid) async {
+    if (_useMock) {
+      return _mockSelfCancellations.where((id) => id == uid).length;
+    }
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('playerCancellations')
+          .where('userId', isEqualTo: uid)
+          .count()
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return snap.count ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// حجوزات هذا الشهر بنفس المدينة — خام (بدون تجميع) لترتيب الحي.
+  /// نجلب المستندات لأن Firestore ما يگدر يجمّع (COUNT GROUP BY) حسب
+  /// اللاعب مباشرة؛ الحد الأقصى يحمي من استعلام ضخم بمدينة نشيطة جداً.
+  static const int leaderboardQueryLimit = 1000;
+
+  Future<List<Booking>> bookingsInCityThisMonth(String city) async {
+    final monthStart = DateLabels.monthStart();
+    final today = todayDate();
+
+    if (_useMock) {
+      return _mockBookings
+          .where(
+            (b) =>
+                b.city == city &&
+                b.date.compareTo(monthStart) >= 0 &&
+                b.date.compareTo(today) <= 0,
+          )
+          .toList();
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('city', isEqualTo: city)
+          .where('date', isGreaterThanOrEqualTo: monthStart)
+          .where('date', isLessThanOrEqualTo: today)
+          .limit(leaderboardQueryLimit)
+          .get()
+          .timeout(const Duration(seconds: 15));
+      return [
+        for (final doc in snapshot.docs) Booking.fromMap(doc.id, doc.data()),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// تصفير وضع الاختبار — للاختبارات فقط
+  @visibleForTesting
+  void debugReset() {
+    _mockBookings.clear();
+    _mockSelfCancellations.clear();
+    _cursor = null;
+    _hasMore = true;
+    revision.value++;
   }
 }

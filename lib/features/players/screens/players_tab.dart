@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/player_request.dart';
 import '../../../core/services/player_requests_service.dart';
+import '../../../core/services/request_responses_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/pressable.dart';
@@ -54,6 +55,10 @@ class _PlayersTabState extends State<PlayersTab> {
     try {
       final more = await PlayerRequestsService.instance.moreRequests();
       if (!mounted || more.isEmpty) return;
+      await RequestResponsesService.instance.loadMyResponses([
+        for (final r in more) r.id,
+      ]);
+      if (!mounted) return;
       setState(() => _requests = [...?_requests, ...more]);
     } catch (_) {
       // فشل دفعة إضافية ما يكسر القائمة المعروضة
@@ -65,6 +70,10 @@ class _PlayersTabState extends State<PlayersTab> {
   Future<void> _load() async {
     try {
       final requests = await PlayerRequestsService.instance.todayRequests();
+      // استعلام وحد يجيب انضماماتي بكل الدفعة المعروضة (مو واحد لكل بطاقة)
+      await RequestResponsesService.instance.loadMyResponses([
+        for (final r in requests) r.id,
+      ]);
       if (mounted) {
         setState(() {
           _requests = requests;
@@ -117,9 +126,9 @@ class _PlayersTabState extends State<PlayersTab> {
     try {
       await PlayerRequestsService.instance.deleteRequest(request);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.requestDeleted)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.requestDeleted)));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -129,9 +138,9 @@ class _PlayersTabState extends State<PlayersTab> {
   }
 
   void _openNewRequest() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const NewRequestScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const NewRequestScreen()));
   }
 
   @override
@@ -206,25 +215,23 @@ class _PlayersTabState extends State<PlayersTab> {
                         itemBuilder: (_, _) => const _RequestSkeleton(),
                       )
                     : requests.isEmpty
-                        ? _EmptyState(error: _error, onPost: _openNewRequest)
-                        : ListView.separated(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
-                            // عنصر إضافي بالنهاية = هيكل تحميل الدفعة الجاية
-                            itemCount: requests.length +
-                                (PlayerRequestsService.instance.hasMore
-                                    ? 1
-                                    : 0),
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 16),
-                            itemBuilder: (_, i) => i >= requests.length
-                                ? const _RequestSkeleton()
-                                : _RequestCard(
-                                    request: requests[i],
-                                    isMine: requests[i].userId == myId,
-                                    onDelete: () => _delete(requests[i]),
-                                  ),
-                          ),
+                    ? _EmptyState(error: _error, onPost: _openNewRequest)
+                    : ListView.separated(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
+                        // عنصر إضافي بالنهاية = هيكل تحميل الدفعة الجاية
+                        itemCount:
+                            requests.length +
+                            (PlayerRequestsService.instance.hasMore ? 1 : 0),
+                        separatorBuilder: (_, _) => const SizedBox(height: 16),
+                        itemBuilder: (_, i) => i >= requests.length
+                            ? const _RequestSkeleton()
+                            : _RequestCard(
+                                request: requests[i],
+                                isMine: requests[i].userId == myId,
+                                onDelete: () => _delete(requests[i]),
+                              ),
+                      ),
               ),
             ),
           ],
@@ -442,54 +449,155 @@ class _RequestCard extends StatelessWidget {
                       ),
                     ),
                   )
-                : Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Pressable(
-                            child: ElevatedButton.icon(
-                              onPressed: _whatsapp,
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(0, 44),
-                              ),
-                              icon: const Icon(Icons.chat_rounded, size: 18),
-                              label: const Text(
-                                AppStrings.whatsappContact,
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: Pressable(
-                            child: OutlinedButton.icon(
-                              onPressed: _call,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primaryDark,
-                                side: BorderSide(color: AppColors.border),
-                                minimumSize: const Size(0, 44),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                textStyle: AppTheme.cairo(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14,
+                : Column(
+                    children: [
+                      _JoinButton(request: request),
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Pressable(
+                                child: ElevatedButton.icon(
+                                  onPressed: _whatsapp,
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(0, 44),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.chat_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    AppStrings.whatsappContact,
+                                    style: TextStyle(fontSize: 14),
+                                  ),
                                 ),
                               ),
-                              icon: const Icon(Icons.call_rounded, size: 18),
-                              label: const Text(AppStrings.callContact),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: Pressable(
+                                child: OutlinedButton.icon(
+                                  onPressed: _call,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primaryDark,
+                                    side: BorderSide(color: AppColors.border),
+                                    minimumSize: const Size(0, 44),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    textStyle: AppTheme.cairo(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.call_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text(AppStrings.callContact),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// زر "أني أجي" — انضمام حقيقي يُحسب لشارة "منقذ" بملف اللاعب.
+/// الحالة نفسها (انضممت أو لا) تُقرأ مباشرة من الخدمة — دليل حقيقي
+/// موجود فعلاً بـ Firestore، ما نخزّنه محلياً بالواجهة.
+class _JoinButton extends StatefulWidget {
+  const _JoinButton({required this.request});
+
+  final PlayerRequest request;
+
+  @override
+  State<_JoinButton> createState() => _JoinButtonState();
+}
+
+class _JoinButtonState extends State<_JoinButton> {
+  bool _loading = false;
+
+  Future<void> _toggle() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    final wasJoined = RequestResponsesService.instance.hasResponded(
+      widget.request.id,
+    );
+    try {
+      if (wasJoined) {
+        await RequestResponsesService.instance.withdraw(widget.request);
+      } else {
+        await RequestResponsesService.instance.respond(widget.request);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              wasJoined
+                  ? AppStrings.withdrawnMsg
+                  : AppStrings.joinRequestSuccess,
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.joinRequestError)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final joined = RequestResponsesService.instance.hasResponded(
+      widget.request.id,
+    );
+    return Pressable(
+      onTap: _loading ? null : _toggle,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: joined ? AppColors.primaryTint : AppColors.primary,
+          borderRadius: BorderRadius.circular(14),
+          border: joined
+              ? Border.all(color: AppColors.primary.withValues(alpha: 0.4))
+              : null,
+        ),
+        child: _loading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: joined ? AppColors.primary : AppColors.white,
+                ),
+              )
+            : Text(
+                joined ? AppStrings.joinedRequest : AppStrings.joinRequest,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                  color: joined ? AppColors.primaryDark : AppColors.white,
+                ),
+              ),
       ),
     );
   }
@@ -526,9 +634,9 @@ class _EmptyState extends StatelessWidget {
         Text(
           error ? AppStrings.requestsLoadError : AppStrings.noRequestsTitle,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         if (!error) ...[
           const SizedBox(height: 8),
@@ -536,10 +644,10 @@ class _EmptyState extends StatelessWidget {
             AppStrings.noRequestsMessage,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.grey,
-                  fontWeight: FontWeight.w600,
-                  height: 1.7,
-                ),
+              color: AppColors.grey,
+              fontWeight: FontWeight.w600,
+              height: 1.7,
+            ),
           ),
           const SizedBox(height: 22),
           Center(

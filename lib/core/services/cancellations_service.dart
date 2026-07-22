@@ -232,6 +232,27 @@ class CancellationsService {
     }
   }
 
+  // ---------- إحصائيات اللاعب ----------
+
+  /// عدد المرات اللي صاحب ملعب ألغى حجز هذا اللاعب — دليل إنه حجز فعلاً
+  /// ولو ما بقى الحجز موجود (يستخدمها ملفه الشخصي لإثبات "أول حجز"
+  /// حتى لو الحجز انلغى من الملعب مو منه).
+  Future<int> cancelledAgainstCount(String uid) async {
+    if (_useMock) {
+      return _mock.where((c) => c.playerId == uid).length;
+    }
+    try {
+      final snap = await _col
+          .where('playerId', isEqualTo: uid)
+          .count()
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return snap.count ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   // ---------- البدائل ----------
 
   /// ملاعب بديلة بنفس اليوم والساعة والمدينة والرياضة — الأقرب أولاً.

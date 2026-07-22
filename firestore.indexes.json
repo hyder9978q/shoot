@@ -48,6 +48,30 @@
         { "fieldPath": "playerId", "order": "ASCENDING" },
         { "fieldPath": "cancelledAtMs", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "city", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "requestResponses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "joinerId", "order": "ASCENDING" },
+        { "fieldPath": "requestId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

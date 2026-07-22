@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -17,13 +18,16 @@ import '../../core/services/user_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/utils/arabic_num.dart';
+import '../../core/widgets/pressable.dart';
 import '../auth/screens/login_screen.dart';
 import '../bookings/screens/bookings_tab.dart';
 import '../home/screens/home_screen.dart';
 import '../owner/screens/owner_dashboard_screen.dart';
 import '../players/screens/players_tab.dart';
 import '../profile/screens/favorites_screen.dart';
+import '../profile/screens/leaderboard_screen.dart';
 import '../profile/screens/my_reviews_screen.dart';
+import '../profile/screens/player_profile_screen.dart';
 import '../splash/splash_screen.dart';
 
 /// الهيكل الرئيسي — تبويبات سفلية: الرئيسية، حجوزاتي، ناقصنا لاعب، حسابي
@@ -84,21 +88,21 @@ class _MainShellState extends State<MainShell> {
           selectedIndex: index,
           onDestinationSelected: AppTabs.go,
           destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'الرئيسية',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_available_outlined),
-            selectedIcon: Icon(Icons.event_available_rounded),
-            label: 'حجوزاتي',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.group_add_outlined),
-            selectedIcon: Icon(Icons.group_add_rounded),
-            label: 'ناقصنا لاعب',
-          ),
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'الرئيسية',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.event_available_outlined),
+              selectedIcon: Icon(Icons.event_available_rounded),
+              label: 'حجوزاتي',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.group_add_outlined),
+              selectedIcon: Icon(Icons.group_add_rounded),
+              label: 'ناقصنا لاعب',
+            ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
@@ -187,31 +191,58 @@ class _ProfileTabState extends State<_ProfileTab> {
                   valueListenable: UserService.instance.revision,
                   builder: (context, _, _) {
                     final name = UserService.instance.name;
+                    final photoUrl = UserService.instance.photoUrl;
                     final initial = name.isEmpty ? '؟' : name.characters.first;
                     return Column(
                       children: [
-                        Container(
-                          width: 88,
-                          height: 88,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x33000000),
-                                blurRadius: 26,
-                                offset: Offset(0, 10),
+                        Pressable(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PlayerProfileScreen(
+                                uid: UserService.instance.uid,
+                                isOwn: true,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            initial,
-                            style: TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primary,
                             ),
+                          ),
+                          child: Container(
+                            width: 88,
+                            height: 88,
+                            alignment: Alignment.center,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x33000000),
+                                  blurRadius: 26,
+                                  offset: Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: photoUrl.isEmpty
+                                ? Text(
+                                    initial,
+                                    style: TextStyle(
+                                      fontSize: 34,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                : CachedNetworkImage(
+                                    imageUrl: photoUrl,
+                                    fit: BoxFit.cover,
+                                    width: 88,
+                                    height: 88,
+                                    errorWidget: (_, _, _) => Text(
+                                      initial,
+                                      style: TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -300,6 +331,31 @@ class _ProfileTabState extends State<_ProfileTab> {
                           },
                         ),
                       _ProfileItem(
+                        icon: Icons.emoji_events_rounded,
+                        label: AppStrings.myProfileItem,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PlayerProfileScreen(
+                                uid: UserService.instance.uid,
+                                isOwn: true,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _ProfileItem(
+                        icon: Icons.leaderboard_rounded,
+                        label: AppStrings.leaderboardItem,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const LeaderboardScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _ProfileItem(
                         icon: Icons.favorite_rounded,
                         label: 'المفضلة',
                         onTap: () {
@@ -386,14 +442,12 @@ class _ProfileTabState extends State<_ProfileTab> {
     );
   }
 
-
   void _soon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.comingSoon)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(AppStrings.comingSoon)));
   }
 }
-
 
 /// بطاقة رقم بالملف الشخصي (حجز / مفضلة / تقييم)
 class _StatCard extends StatelessWidget {
@@ -475,13 +529,13 @@ class _ProfileItem extends StatelessWidget {
     final Color tileColor = danger
         ? AppColors.errorSoft
         : accent
-            ? AppColors.accentSoft
-            : AppColors.primaryTint;
+        ? AppColors.accentSoft
+        : AppColors.primaryTint;
     final Color iconColor = danger
         ? AppColors.error
         : accent
-            ? AppColors.accentInk
-            : AppColors.primary;
+        ? AppColors.accentInk
+        : AppColors.primary;
 
     return Material(
       color: AppColors.surface,
@@ -497,9 +551,7 @@ class _ProfileItem extends StatelessWidget {
           decoration: last
               ? null
               : BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppColors.hairline),
-                  ),
+                  border: Border(bottom: BorderSide(color: AppColors.hairline)),
                 ),
           child: Row(
             children: [

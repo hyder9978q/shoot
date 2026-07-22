@@ -33,27 +33,24 @@ class ShootApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // تبديل الوضع الليلي يعيد بناء التطبيق كله بمفتاح جديد
-    // حتى كل الألوان (getters) تنقرأ من اللوحة الجديدة
-    return ValueListenableBuilder<bool>(
-      valueListenable: ThemeController.instance.isDark,
-      builder: (context, isDark, _) => MaterialApp(
-        key: ValueKey(isDark),
-        title: AppStrings.appName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        // ما نتبع وضع النظام: الثيم يتحكم بيه المستخدم فقط
-        themeMode: ThemeMode.light,
-        // اللغة العربية + الكتابة من اليمين لليسار
-        locale: const Locale('ar'),
-        supportedLocales: const [Locale('ar'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const SplashScreen(),
-      ),
+    // تبديل الوضع الليلي ما يعيد بناء MaterialApp من جذره (كان يفقد
+    // كومة التنقل ويرجّع للسبلاش) — [ThemeController.saveDark] يجبر
+    // كل شاشة مبنية حالياً تعيد رسم نفسها بمكانها بدل ذلك.
+    return MaterialApp(
+      title: AppStrings.appName,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      // ما نتبع وضع النظام: الثيم يتحكم بيه المستخدم فقط
+      themeMode: ThemeMode.light,
+      // اللغة العربية + الكتابة من اليمين لليسار
+      locale: const Locale('ar'),
+      supportedLocales: const [Locale('ar'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const SplashScreen(),
     );
   }
 }

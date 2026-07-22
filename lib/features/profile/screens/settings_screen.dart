@@ -197,6 +197,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // نسمع متحكّم الوضع الليلي حتى الشاشة كاملة (بطاقاتها وألوانها)
+    // تتحدث فوراً وبمكانها لو المستخدم بدّل الثيم وهو فاتحها — بدل
+    // ما تنتظر إعادة بناء خارجية.
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.instance.isDark,
+      builder: (context, _, _) => _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -261,20 +271,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _SectionHeader(AppStrings.settingsAppearanceSection),
           _SettingsCard(
             children: [
-              ValueListenableBuilder<bool>(
-                valueListenable: ThemeController.instance.isDark,
-                builder: (context, isDark, _) => _SettingsRow(
-                  icon: isDark
-                      ? Icons.dark_mode_rounded
-                      : Icons.dark_mode_outlined,
-                  label: AppStrings.settingsDarkModeLabel,
-                  hint: AppStrings.settingsDarkModeHint,
-                  last: true,
-                  trailing: Switch(
-                    value: isDark,
-                    activeThumbColor: AppColors.primary,
-                    onChanged: (v) => UserService.instance.saveThemeDark(v),
-                  ),
+              _SettingsRow(
+                icon: ThemeController.instance.isDark.value
+                    ? Icons.dark_mode_rounded
+                    : Icons.dark_mode_outlined,
+                label: AppStrings.settingsDarkModeLabel,
+                hint: AppStrings.settingsDarkModeHint,
+                last: true,
+                trailing: Switch(
+                  value: ThemeController.instance.isDark.value,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (v) => UserService.instance.saveThemeDark(v),
                 ),
               ),
             ],

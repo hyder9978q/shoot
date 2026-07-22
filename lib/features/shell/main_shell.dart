@@ -77,6 +77,18 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // نسمع متحكّم الوضع الليلي هنا أيضاً — IndexedStack يبقي كل
+    // التبويبات الأربعة مبنية بالذاكرة حتى وهي مخفية (يشمل تبويب
+    // "حسابي" وشاشة الإعدادات المفتوحة فوقه)، فتبديل الثيم من أي
+    // مكان لازم يعيد بناءها هنا حتى تلتقط الألوان الجديدة فوراً —
+    // بدل إعادة بناء التطبيق كامل من جذره وفقدان كومة التنقل.
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.instance.isDark,
+      builder: (context, _, _) => _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     // نسمع متحكّم التبويبات حتى أي شاشة تگدر تنقل المستخدم (زر تصفّح الملاعب...)
     return ValueListenableBuilder<int>(
       valueListenable: AppTabs.current,

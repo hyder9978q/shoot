@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/field.dart';
 import '../models/player_request.dart';
 import '../utils/input_sanitizer.dart';
+import 'app_mode.dart';
 import 'bookings_service.dart';
 
 /// خدمة إعلانات "ناقصنا لاعب" — تقرأ وتكتب بمجموعة playerRequests
@@ -18,11 +18,10 @@ class PlayerRequestsService {
   /// يزيد مع كل نشر/حذف — التبويب يسمعه ويحدّث نفسه
   final ValueNotifier<int> revision = ValueNotifier(0);
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
-  String get currentUserId => _useMock
-      ? 'mock-user'
-      : FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get currentUserId =>
+      _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';
 
   String get _currentPhone => _useMock
       ? '+9647701234567'
@@ -100,9 +99,7 @@ class PlayerRequestsService {
     // دفعة ناقصة = وصلنا للنهاية
     _hasMore = docs.length == pageSize;
 
-    return [
-      for (final doc in docs) PlayerRequest.fromMap(doc.id, doc.data()),
-    ];
+    return [for (final doc in docs) PlayerRequest.fromMap(doc.id, doc.data())];
   }
 
   /// نشر جاري؟ — ما ننشر إعلانين بضغطة مكررة
@@ -154,18 +151,17 @@ class PlayerRequestsService {
     );
 
     if (_useMock) {
-      _mockRequests.add(PlayerRequest.fromMap(
-        'mock-${_mockRequests.length}',
-        request.toMap(),
-      ));
+      _mockRequests.add(
+        PlayerRequest.fromMap('mock-${_mockRequests.length}', request.toMap()),
+      );
       revision.value++;
       return;
     }
 
-    await FirebaseFirestore.instance.collection('playerRequests').add({
-      ...request.toMap(),
-      'createdAt': FieldValue.serverTimestamp(),
-    }).timeout(const Duration(seconds: 15));
+    await FirebaseFirestore.instance
+        .collection('playerRequests')
+        .add({...request.toMap(), 'createdAt': FieldValue.serverTimestamp()})
+        .timeout(const Duration(seconds: 15));
     revision.value++;
   }
 

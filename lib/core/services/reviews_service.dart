@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/field.dart';
 import '../models/review.dart';
 import '../utils/input_sanitizer.dart';
+import 'app_mode.dart';
 import 'user_service.dart';
 
 /// خدمة التقييمات — تقرأ وتكتب بمجموعة reviews،
@@ -18,11 +18,10 @@ class ReviewsService {
   /// يزيد مع كل نشر/حذف — الشاشات تسمعه وتتحدث
   final ValueNotifier<int> revision = ValueNotifier(0);
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
-  String get _uid => _useMock
-      ? 'mock-user'
-      : FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _uid =>
+      _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';
 
   CollectionReference<Map<String, dynamic>> get _col =>
       FirebaseFirestore.instance.collection('reviews');
@@ -153,10 +152,7 @@ class ReviewsService {
         return;
       }
 
-      await _col
-          .doc(review.id)
-          .delete()
-          .timeout(const Duration(seconds: 15));
+      await _col.doc(review.id).delete().timeout(const Duration(seconds: 15));
       revision.value++;
     } finally {
       _deleting.remove(review.id);

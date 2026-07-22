@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/player_request.dart';
+import 'app_mode.dart';
 
 /// خدمة "انضمامات" إعلانات ناقصنا لاعب — دليل حقيقي كل مرة لاعب يتطوع
 /// يكمّل نقص فريق. هذا هو المصدر الوحيد لشارة "منقذ": بدونها ما بيه أي
@@ -20,7 +20,7 @@ class RequestResponsesService {
   /// يزيد مع كل انضمام/انسحاب — البطاقات تسمعه وتحدّث حالتها
   final ValueNotifier<int> revision = ValueNotifier(0);
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
   String get _uid =>
       _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';

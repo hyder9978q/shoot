@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/models/field.dart';
 import '../../core/navigation/app_tabs.dart';
+import '../../core/services/app_mode.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/local_store.dart';
 import '../../core/services/bookings_service.dart';
@@ -135,7 +136,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 
   Future<void> _loadMyFields() async {
-    final userId = Firebase.apps.isEmpty
+    final userId = AppMode.isMock
         ? 'mock-user'
         : FirebaseAuth.instance.currentUser?.uid ?? '';
     final fields = await FieldsService.instance.myFields(userId);
@@ -143,7 +144,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 
   String get _phone {
-    if (Firebase.apps.isEmpty) return 'ضيف';
+    if (AppMode.isMock) return 'ضيف';
     final user = FirebaseAuth.instance.currentUser;
     return user?.phoneNumber ?? 'ضيف';
   }

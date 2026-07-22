@@ -138,7 +138,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text(AppStrings.photoSaved)));
-    } on InvalidPhotoException catch (e) {
+    } on InvalidImageException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

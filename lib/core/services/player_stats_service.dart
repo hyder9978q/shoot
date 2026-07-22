@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../models/player_stats.dart';
+import 'app_mode.dart';
 import 'bookings_service.dart';
 import 'cancellations_service.dart';
 import 'request_responses_service.dart';
@@ -13,7 +13,7 @@ class PlayerStatsService {
 
   static final PlayerStatsService instance = PlayerStatsService._();
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
   /// إحصائيات وشارات لاعب معيّن — تصلح لملفي الشخصي أو ملف لاعب ثاني
   Future<PlayerStats> statsFor(String uid) async {

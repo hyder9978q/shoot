@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/booking.dart';
@@ -8,6 +7,7 @@ import '../models/cancellation.dart';
 import '../models/field.dart';
 import '../utils/geo.dart';
 import '../utils/input_sanitizer.dart';
+import 'app_mode.dart';
 import 'bookings_service.dart';
 import 'fields_service.dart';
 
@@ -38,7 +38,7 @@ class CancellationsService {
   /// يزيد مع كل إلغاء/تحديث — الشاشات تسمعه وتحدّث نفسها
   final ValueNotifier<int> revision = ValueNotifier(0);
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
   String get _uid =>
       _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';

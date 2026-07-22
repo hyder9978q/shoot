@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/booking.dart';
 import '../models/field.dart';
 import '../utils/date_labels.dart';
+import 'app_mode.dart';
 import 'fields_service.dart';
 
 /// الوقت اللي اختاره المستخدم توه انحجز من شخص ثاني
@@ -30,7 +30,7 @@ class BookingsService {
   /// (نفس معرّف اللاعب يتكرر حسب عدد المرات؛ يكفي للعدّ بشارة "ملتزم")
   final List<String> _mockSelfCancellations = [];
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
   String get _uid =>
       _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';

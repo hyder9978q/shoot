@@ -6,12 +6,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
+import 'app_mode.dart';
 import 'local_store.dart';
 
 /// خدمة تسجيل الدخول برقم الهاتف
 ///
 /// إذا Firebase مرتبط وشغّال → ترسل رمز حقيقي عبر Firebase Auth.
-/// إذا لا (مثلاً بالاختبارات الآلية) → ترجع للوضع التجريبي برمز 123456.
+/// إذا لا (مثلاً بالاختبارات الآلية أو وضع التطوير) → ترجع للوضع
+/// التجريبي برمز 123456 — وهذا الرمز ما يشتغل إطلاقاً ببناء الإنتاج
+/// (يتحكم فيه [AppMode.isMock]، مقفل بـ kDebugMode وقت الترجمة).
 class AuthService {
   AuthService._();
 
@@ -20,7 +23,7 @@ class AuthService {
   /// الرمز التجريبي — يشتغل بس بالوضع التجريبي
   static const String _mockOtp = '123456';
 
-  bool get _useFirebase => Firebase.apps.isNotEmpty;
+  bool get _useFirebase => !AppMode.isMock;
 
   /// معرّف جلسة التحقق (sessionInfo / verificationId)
   String? _verificationId;
@@ -129,12 +132,12 @@ class AuthService {
     final code = body.contains('BILLING_NOT_ENABLED')
         ? 'billing-not-enabled'
         : body.contains('INVALID_PHONE_NUMBER')
-            ? 'invalid-phone-number'
-            : body.contains('TOO_MANY')
-                ? 'too-many-requests'
-                : body.contains('OPERATION_NOT_ALLOWED')
-                    ? 'operation-not-allowed'
-                    : 'send-failed';
+        ? 'invalid-phone-number'
+        : body.contains('TOO_MANY')
+        ? 'too-many-requests'
+        : body.contains('OPERATION_NOT_ALLOWED')
+        ? 'operation-not-allowed'
+        : 'send-failed';
     // ما نمرّر جسم الرد الخام — ممكن يحتوي رقم الهاتف ويتسرب لأي معالج أخطاء
     throw FirebaseAuthException(code: code);
   }

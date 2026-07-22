@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
-import 'package:firebase_core/firebase_core.dart';
 
 import '../models/leaderboard_entry.dart';
+import 'app_mode.dart';
 import 'bookings_service.dart';
 import 'user_service.dart';
 
@@ -32,7 +32,7 @@ class LeaderboardService {
 
   static final LeaderboardService instance = LeaderboardService._();
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
   static const int topSize = 10;
 

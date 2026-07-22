@@ -1,20 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../theme/theme_controller.dart';
+import '../utils/image_validation.dart';
 import '../utils/input_sanitizer.dart';
+import 'app_mode.dart';
 import 'local_store.dart';
 import 'supabase_storage_service.dart';
 
-/// صورة غير صالحة (امتداد مرفوض أو حجم أكبر من الحد)
-class InvalidPhotoException implements Exception {
-  const InvalidPhotoException({required this.tooLarge});
-
-  final bool tooLarge;
-}
+export '../utils/image_validation.dart' show InvalidImageException;
 
 /// ملف المستخدم — الاسم والمدينة والصورة والمفضلة، ينخزن بمستند users/{uid}
 /// وبوضع الاختبار (بدون Firebase) يشتغل بالذاكرة.
@@ -37,7 +33,7 @@ class UserService {
   final Set<String> _favorites = {};
   bool _loaded = false;
 
-  bool get _useMock => Firebase.apps.isEmpty;
+  bool get _useMock => AppMode.isMock;
 
   String get _uid =>
       _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -200,21 +196,14 @@ class UserService {
     }
   }
 
-  /// امتدادات صور مقبولة لصورة الملف الشخصي (بنفس حدود صور الملاعب)
-  static const Map<String, String> _allowedPhotoTypes = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'webp': 'image/webp',
-  };
-
-  static const int maxPhotoBytes = 5 * 1024 * 1024;
+  /// الحد الأقصى لحجم صورة الملف الشخصي — نفس حد [ImageValidation]
+  static const int maxPhotoBytes = ImageValidation.maxBytes;
 
   /// رفع الصور معطّل بوضع التجربة (بدون Firebase منشور)
-  static bool get canUploadPhoto => Firebase.apps.isNotEmpty;
+  static bool get canUploadPhoto => !AppMode.isMock;
 
-  /// يختار صورة من المعرض ويرفعها ويحفظ رابطها — يرمي [InvalidPhotoException]
-  /// لو الامتداد مرفوض أو الحجم أكبر من ٥ ميغا
+  /// يختار صورة من المعرض ويرفعها ويحفظ رابطها — يرمي [InvalidImageException]
+  /// لو الامتداد مرفوض أو الحجم أكبر من ٥ ميغا (نفس تحقق صور الملاعب)
   Future<void> pickAndUploadPhoto() async {
     if (_savingPhoto) return;
     if (!canUploadPhoto) {
@@ -228,22 +217,14 @@ class UserService {
 
     _savingPhoto = true;
     try {
-      final dot = file.name.lastIndexOf('.');
-      final ext = dot == -1 ? '' : file.name.substring(dot + 1).toLowerCase();
-      if (!_allowedPhotoTypes.containsKey(ext)) {
-        throw const InvalidPhotoException(tooLarge: false);
-      }
-      final bytes = await file.readAsBytes();
-      if (bytes.length > maxPhotoBytes) {
-        throw const InvalidPhotoException(tooLarge: true);
-      }
+      final (ext, contentType, bytes) = await ImageValidation.validate(file);
 
       final stamp = DateTime.now().microsecondsSinceEpoch;
       final url = await SupabaseStorageService.upload(
         bucket: 'player-photos',
         path: '$_uid/$stamp.$ext',
         bytes: bytes,
-        contentType: _allowedPhotoTypes[ext]!,
+        contentType: contentType,
       );
       await _savePhotoUrl(url);
     } finally {

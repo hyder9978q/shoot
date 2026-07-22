@@ -1,20 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/field.dart';
+import '../utils/image_validation.dart';
 import '../utils/input_sanitizer.dart';
+import 'app_mode.dart';
 import 'supabase_storage_service.dart';
 
-/// ملف مرفوض عند الرفع — مو صورة أو حجمه أكبر من المسموح
-class InvalidImageException implements Exception {
-  const InvalidImageException({required this.tooLarge});
-
-  /// true = الحجم أكبر من الحد، false = نوع الملف مو صورة مقبولة
-  final bool tooLarge;
-}
+export '../utils/image_validation.dart' show InvalidImageException;
 
 /// خدمة الملاعب — تقرأ من Firestore، ومع أي خلل (لا نت / لا Firebase)
 /// ترجع للبيانات التجريبية حتى يبقى التطبيق شغال.
@@ -102,7 +97,7 @@ class FieldsService {
   Future<List<Field>> _fetchPage() async {
     // وضع التجربة: نفس منطق الدفعات بس على البيانات التجريبية
     // (نسخة قابلة للتعديل حتى تعديلات المالك تشتغل بالذاكرة)
-    if (Firebase.apps.isEmpty) {
+    if (AppMode.isMock) {
       final list = _cache ??= <Field>[];
       final next = _mockFields.skip(_mockLoaded).take(pageSize).toList();
       _mockLoaded += next.length;
@@ -129,9 +124,7 @@ class FieldsService {
       _hasMore = docs.length == pageSize;
 
       final list = _cache ??= <Field>[];
-      list.addAll([
-        for (final doc in docs) Field.fromMap(doc.id, doc.data()),
-      ]);
+      list.addAll([for (final doc in docs) Field.fromMap(doc.id, doc.data())]);
 
       // ولا ملعب وصل أبداً؟ نرجع للبيانات التجريبية بدل شاشة فارغة
       if (list.isEmpty) {
@@ -324,7 +317,8 @@ class FieldsService {
     return (_cache ?? _mockFields).where((f) {
       final matchesSport = sport == null || f.sport == sport;
       final matchesCity = city == null || f.city == city;
-      final matchesQuery = q.isEmpty ||
+      final matchesQuery =
+          q.isEmpty ||
           f.name.contains(q) ||
           f.area.contains(q) ||
           f.city.contains(q);
@@ -344,13 +338,13 @@ class FieldsService {
   static const int depositAmount = 5000;
 
   /// هل رفع الصور متاح؟ يحتاج Firebase مفعّل (مو وضع التجربة المحلي)
-  static bool get canUploadPhotos => Firebase.apps.isNotEmpty;
+  static bool get canUploadPhotos => !AppMode.isMock;
 
   /// فحص الملكية: ما نسمح بأي تعديل على ملعب مو تابع للمستخدم الحالي.
   /// (قواعد Firestore تمنع كتابة المستند من السيرفر — وهذا خط دفاع بالتطبيق)
   /// بوضع التجربة (بدون Firebase) المستخدم هو 'mock-user'.
   void _assertOwner(Field field) {
-    final uid = Firebase.apps.isEmpty
+    final uid = AppMode.isMock
         ? 'mock-user'
         : FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || field.ownerId != uid) {
@@ -366,7 +360,7 @@ class FieldsService {
     Field updated,
   ) async {
     _assertOwner(field);
-    if (Firebase.apps.isNotEmpty) {
+    if (!AppMode.isMock) {
       await FirebaseFirestore.instance
           .collection('fields')
           .doc(field.id)
@@ -385,35 +379,12 @@ class FieldsService {
     if (i != -1) list[i] = updated;
   }
 
-  /// الحد الأقصى لحجم الصورة الواحدة: ٥ ميغابايت
-  static const int maxPhotoBytes = 5 * 1024 * 1024;
+  /// الحد الأقصى لحجم الصورة الواحدة: ٥ ميغابايت (من [ImageValidation])
+  static const int maxPhotoBytes = ImageValidation.maxBytes;
 
-  /// أنواع الصور المقبولة فقط — أي امتداد ثاني يُرفض
-  static const Map<String, String> _allowedImageTypes = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'webp': 'image/webp',
-  };
-
-  /// يتحقق من الملف على مستوى التطبيق قبل الرفع:
-  /// امتداد صورة مقبول + حجم ≤ ٥ ميغا. يرجّع (الامتداد، البايتات).
-  static Future<(String, Uint8List)> _validateImage(XFile file) async {
-    final dot = file.name.lastIndexOf('.');
-    final ext = dot == -1 ? '' : file.name.substring(dot + 1).toLowerCase();
-    if (!_allowedImageTypes.containsKey(ext)) {
-      throw const InvalidImageException(tooLarge: false);
-    }
-    final bytes = await file.readAsBytes();
-    if (bytes.length > maxPhotoBytes) {
-      throw const InvalidImageException(tooLarge: true);
-    }
-    return (ext, bytes);
-  }
-
-  /// يتحقق من الملفات كلها ثم يرفعها لـ bucket بـ Supabase Storage
-  /// ويرجّع روابطها العامة. يا كل الملفات تنرفع يا ولا واحد
-  /// (التحقق قبل أول رفع).
+  /// يتحقق من الملفات كلها (نفس تحقق [ImageValidation] المستخدم بكل نقاط
+  /// الرفع بالتطبيق) ثم يرفعها لـ bucket بـ Supabase Storage ويرجّع
+  /// روابطها العامة. يا كل الملفات تنرفع يا ولا واحد (التحقق قبل أول رفع).
   Future<List<String>> _uploadImages(
     Field field,
     String bucket,
@@ -424,17 +395,21 @@ class FieldsService {
     }
     _assertOwner(field);
 
-    final validated = [for (final file in files) await _validateImage(file)];
+    final validated = [
+      for (final file in files) await ImageValidation.validate(file),
+    ];
 
     final newUrls = <String>[];
-    for (final (ext, bytes) in validated) {
+    for (final (ext, contentType, bytes) in validated) {
       final stamp = DateTime.now().microsecondsSinceEpoch;
-      newUrls.add(await SupabaseStorageService.upload(
-        bucket: bucket,
-        path: '${field.id}/$stamp.$ext',
-        bytes: bytes,
-        contentType: _allowedImageTypes[ext]!,
-      ));
+      newUrls.add(
+        await SupabaseStorageService.upload(
+          bucket: bucket,
+          path: '${field.id}/$stamp.$ext',
+          bytes: bytes,
+          contentType: contentType,
+        ),
+      );
     }
     return newUrls;
   }
@@ -453,11 +428,9 @@ class FieldsService {
     if (files.isEmpty) return field;
     final newUrls = await _uploadImages(field, 'field-photos', files);
     final updatedUrls = [...field.imageUrls, ...newUrls];
-    return _saveOwnerUpdate(
-      field,
-      {'imageUrls': updatedUrls},
-      field.copyWith(imageUrls: updatedUrls),
-    );
+    return _saveOwnerUpdate(field, {
+      'imageUrls': updatedUrls,
+    }, field.copyWith(imageUrls: updatedUrls));
   }
 
   /// يحذف صورة من الملعب — من Firestore ومن Storage.
@@ -470,11 +443,9 @@ class FieldsService {
       for (final u in field.imageUrls)
         if (u != url) u,
     ];
-    final updated = await _saveOwnerUpdate(
-      field,
-      {'imageUrls': updatedUrls},
-      field.copyWith(imageUrls: updatedUrls),
-    );
+    final updated = await _saveOwnerUpdate(field, {
+      'imageUrls': updatedUrls,
+    }, field.copyWith(imageUrls: updatedUrls));
     await _deleteStorageFile(url);
     return updated;
   }
@@ -486,38 +457,20 @@ class FieldsService {
         !ordered.toSet().containsAll(field.imageUrls)) {
       throw ArgumentError('ترتيب الصور الجديد لازم يضم نفس الصور');
     }
-    return _saveOwnerUpdate(
-      field,
-      {'imageUrls': ordered},
-      field.copyWith(imageUrls: ordered),
-    );
+    return _saveOwnerUpdate(field, {
+      'imageUrls': ordered,
+    }, field.copyWith(imageUrls: ordered));
   }
 
-  // ---------- التحقق من الروابط ----------
+  // ---------- التحقق من الروابط (نفس تحقق ImageValidation بكل النقاط) ----------
 
   /// رابط آمن؟ https فقط، بدون فراغات أو رموز خطيرة، وطول معقول
-  static bool isValidHttpsUrl(String url) {
-    final t = url.trim();
-    if (t.isEmpty || t.length > 500) return false;
-    if (RegExp(r'''[\s<>"'\\{}|^`]''').hasMatch(t)) return false;
-    final uri = Uri.tryParse(t);
-    return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
-  }
+  static bool isValidHttpsUrl(String url) =>
+      ImageValidation.isValidHttpsUrl(url);
 
   /// رابط فيديو مقبول للهايلايتس؟ https + يوتيوب أو انستغرام فقط
-  static bool isValidVideoUrl(String url) {
-    if (!isValidHttpsUrl(url)) return false;
-    final host = Uri.parse(url.trim()).host.toLowerCase();
-    const allowed = [
-      'youtube.com',
-      'www.youtube.com',
-      'm.youtube.com',
-      'youtu.be',
-      'instagram.com',
-      'www.instagram.com',
-    ];
-    return allowed.contains(host);
-  }
+  static bool isValidVideoUrl(String url) =>
+      ImageValidation.isValidVideoUrl(url);
 
   // ---------- المعلومات الأساسية ----------
 
@@ -579,11 +532,7 @@ class FieldsService {
     if (t.isNotEmpty && !isValidHttpsUrl(t)) {
       throw ArgumentError('الرابط لازم يبدي بـ https');
     }
-    return _saveOwnerUpdate(
-      field,
-      {'mapsUrl': t},
-      field.copyWith(mapsUrl: t),
-    );
+    return _saveOwnerUpdate(field, {'mapsUrl': t}, field.copyWith(mapsUrl: t));
   }
 
   /// رفع صور ترويجية — تظهر كبانر بصفحة الملعب
@@ -591,11 +540,9 @@ class FieldsService {
     if (files.isEmpty) return field;
     final newUrls = await _uploadImages(field, 'field-promos', files);
     final updatedUrls = [...field.promoImageUrls, ...newUrls];
-    return _saveOwnerUpdate(
-      field,
-      {'promoImageUrls': updatedUrls},
-      field.copyWith(promoImageUrls: updatedUrls),
-    );
+    return _saveOwnerUpdate(field, {
+      'promoImageUrls': updatedUrls,
+    }, field.copyWith(promoImageUrls: updatedUrls));
   }
 
   /// حذف صورة ترويجية
@@ -604,11 +551,9 @@ class FieldsService {
       for (final u in field.promoImageUrls)
         if (u != url) u,
     ];
-    final updated = await _saveOwnerUpdate(
-      field,
-      {'promoImageUrls': updatedUrls},
-      field.copyWith(promoImageUrls: updatedUrls),
-    );
+    final updated = await _saveOwnerUpdate(field, {
+      'promoImageUrls': updatedUrls,
+    }, field.copyWith(promoImageUrls: updatedUrls));
     await _deleteStorageFile(url);
     return updated;
   }
@@ -621,11 +566,9 @@ class FieldsService {
       ...field.highlights,
       for (final url in newUrls) FieldHighlight(url: url, isVideo: false),
     ];
-    return _saveOwnerUpdate(
-      field,
-      {'highlights': [for (final h in updatedHighlights) h.toMap()]},
-      field.copyWith(highlights: updatedHighlights),
-    );
+    return _saveOwnerUpdate(field, {
+      'highlights': [for (final h in updatedHighlights) h.toMap()],
+    }, field.copyWith(highlights: updatedHighlights));
   }
 
   /// إضافة رابط فيديو (يوتيوب/انستغرام) للقطات الملعب
@@ -638,11 +581,9 @@ class FieldsService {
       ...field.highlights,
       FieldHighlight(url: t, isVideo: true),
     ];
-    return _saveOwnerUpdate(
-      field,
-      {'highlights': [for (final h in updatedHighlights) h.toMap()]},
-      field.copyWith(highlights: updatedHighlights),
-    );
+    return _saveOwnerUpdate(field, {
+      'highlights': [for (final h in updatedHighlights) h.toMap()],
+    }, field.copyWith(highlights: updatedHighlights));
   }
 
   /// حذف لقطة — صورة (تنحذف من Storage) أو رابط فيديو
@@ -651,11 +592,9 @@ class FieldsService {
       for (final h in field.highlights)
         if (h.url != highlight.url) h,
     ];
-    final updated = await _saveOwnerUpdate(
-      field,
-      {'highlights': [for (final h in updatedHighlights) h.toMap()]},
-      field.copyWith(highlights: updatedHighlights),
-    );
+    final updated = await _saveOwnerUpdate(field, {
+      'highlights': [for (final h in updatedHighlights) h.toMap()],
+    }, field.copyWith(highlights: updatedHighlights));
     if (!highlight.isVideo) await _deleteStorageFile(highlight.url);
     return updated;
   }
@@ -667,10 +606,7 @@ class FieldsService {
 
   /// تحديث خدمات المنشأة وأسعارها — الأسماء تنظّف بالـ sanitizer
   /// والأسعار تنحصر بحدود منطقية.
-  Future<Field> updateServices(
-    Field field,
-    List<VenueService> services,
-  ) async {
+  Future<Field> updateServices(Field field, List<VenueService> services) async {
     if (services.length > maxServices) {
       throw ArgumentError('أقصى عدد خدمات هو $maxServices');
     }
@@ -683,11 +619,9 @@ class FieldsService {
       }
       cleaned.add(VenueService(name: name, price: s.price));
     }
-    return _saveOwnerUpdate(
-      field,
-      {'services': [for (final s in cleaned) s.toMap()]},
-      field.copyWith(services: cleaned),
-    );
+    return _saveOwnerUpdate(field, {
+      'services': [for (final s in cleaned) s.toMap()],
+    }, field.copyWith(services: cleaned));
   }
 
   // ---------- طرق الدفع ----------
@@ -704,8 +638,10 @@ class FieldsService {
     if (!deposit && !cashOnArrival) {
       throw ArgumentError('لازم تبقى طريقة دفع وحدة مفعّلة على الأقل');
     }
-    final cleanMerchantId =
-        InputSanitizer.clean(zainCashMerchantId, maxLength: 50);
+    final cleanMerchantId = InputSanitizer.clean(
+      zainCashMerchantId,
+      maxLength: 50,
+    );
     if (zainCashEnabled && cleanMerchantId.isEmpty) {
       throw ArgumentError('فعّلت زين كاش؟ دخّل معرّف التاجر');
     }

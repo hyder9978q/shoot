@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/field.dart';
 import '../../../core/services/bookings_service.dart';
+import '../../../core/services/cancellations_service.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
@@ -22,11 +23,19 @@ class BookingCheckoutScreen extends StatefulWidget {
     required this.field,
     required this.slot,
     required this.date,
+    this.replacesCancellationId = '',
+    this.depositWaived = false,
   });
 
   final Field field;
   final TimeSlot slot;
   final String date;
+
+  /// حجز بديل عن إلغاء مو ذنب اللاعب — فارغ = حجز عادي
+  final String replacesCancellationId;
+
+  /// إعفاء من العربون ("محجوز مضمون")
+  final bool depositWaived;
 
   @override
   State<BookingCheckoutScreen> createState() => _BookingCheckoutScreenState();
@@ -36,18 +45,37 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
   PayMethod _method = PayMethod.zainCash;
   bool _paying = false;
 
-  int get _deposit => FieldsService.depositAmount;
+  /// الحجز المضمون بدون عربون
+  bool get _guaranteed => widget.replacesCancellationId.isNotEmpty;
+
+  int get _deposit => widget.depositWaived ? 0 : FieldsService.depositAmount;
   int get _rest => widget.field.pricePerHour - _deposit;
 
   /// المكان ما يطلب عربون (مراكز العلاج مثلاً حسب إعدادات المالك)
+  /// أو حجز مضمون معفي من العربون
   /// → التأكيد بدون دفع، والمبلغ كله يندفع هناك
-  bool get _noDeposit => !widget.field.paymentDeposit;
+  bool get _noDeposit => !widget.field.paymentDeposit || widget.depositWaived;
 
   Future<void> _pay() async {
     setState(() => _paying = true);
     try {
-      await BookingsService.instance
-          .createBooking(widget.field, widget.slot, date: widget.date);
+      await BookingsService.instance.createBooking(
+        widget.field,
+        widget.slot,
+        date: widget.date,
+        replacesCancellationId: widget.replacesCancellationId,
+        depositWaived: widget.depositWaived,
+      );
+      // استهلكنا الضمان — ما ينعاد استخدامه بحجز ثاني
+      if (_guaranteed) {
+        final mine = await CancellationsService.instance.myCancellations();
+        for (final c in mine) {
+          if (c.id == widget.replacesCancellationId) {
+            await CancellationsService.instance.markCompensated(c);
+            break;
+          }
+        }
+      }
     } on SlotTakenException {
       if (!mounted) return;
       setState(() => _paying = false);
@@ -183,6 +211,56 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // شارة الحجز المضمون — يبين ليش بدون عربون
+                    if (_guaranteed) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryTint,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.verified_rounded,
+                              size: 22,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    AppStrings.guaranteedBadge,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.primaryDeep,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    AppStrings.guaranteedExplain,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primaryDeep
+                                          .withValues(alpha: 0.85),
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     // ملخص الحجز
                     Container(
                       padding: const EdgeInsets.all(16),

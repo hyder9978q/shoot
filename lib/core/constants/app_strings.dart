@@ -394,6 +394,81 @@ class AppStrings {
   static const String lightingValue = 'إنارة';
   static const String startsFrom = 'يبدأ من';
 
+  // ---------- الإلغاء والبديل الفوري ----------
+
+  // صاحب الملعب يلغي
+  static const String ownerCancelTitle = 'تلغي حجز اللاعب؟';
+  static const String ownerCancelBody =
+      'راح نخبر اللاعب فوراً ونلگاله بديل بنفس الوكت. '
+      'وينحسب عليك بنسبة الالتزام، فلا تلغي إلا للضرورة.';
+  static const String ownerCancelReasonHint = 'شنو السبب؟ (اختياري)';
+  static const String ownerCancelConfirm = 'إي، ألغي الحجز';
+  static const String ownerCancelKeep = 'لا، خليه';
+  static const String ownerCancelDone = 'انلغى الحجز وانخبر اللاعب ✅';
+  static const String ownerCancelError = 'ما گدرنا نلغي الحجز، جرّب مرة ثانية';
+  static const String ownerCancelSlotAction = 'ألغي الحجز';
+  static const String ownerBookedBy = 'محجوز من لاعب';
+  static const String ownerNotifyPlayer = 'خبّر اللاعب بالواتساب';
+  static const String ownerCancelNoPhone =
+      'ما عدنا رقم اللاعب — بلّغه بنفسك لو تگدر';
+
+  /// رسالة الواتساب اللي يدزها صاحب الملعب للاعب
+  static String ownerCancelWhatsapp({
+    required String fieldName,
+    required String dayLabel,
+    required String time,
+    required String reason,
+  }) =>
+      'سلام عليكم 🙏\n'
+      'نعتذر منك — اضطرينا نلغي حجزك بـ$fieldName يوم $dayLabel الساعة $time.'
+      '${reason.isEmpty ? '' : '\nالسبب: $reason'}\n\n'
+      'فتحنا إلك بدائل بنفس الوكت بتطبيق شوت، وحجزك الجاي مضمون '
+      'بدون عربون 🎁\n'
+      '— اعتذارنا مرة ثانية، شوت ⚽';
+
+  // إشعار اللاعب داخل التطبيق
+  static const String cancelAlertTitle = 'انلغى حجزك 😔';
+  static String cancelAlertBody(String fieldName, String dayLabel) =>
+      'ملعب $fieldName ألغى حجزك يوم $dayLabel — ما عليك، لگينا إلك بدائل';
+  static const String cancelAlertAction = 'شوف البدائل';
+  static const String cancelAlertDismiss = 'بعدين';
+  static const String cancelReasonLabel = 'السبب اللي ذكره الملعب:';
+
+  // شاشة البدائل
+  static const String replacementTitle = 'بدائل جاهزة إلك';
+  static String replacementSubtitle(String dayLabel, String time) =>
+      'نفس اليوم ($dayLabel) ونفس الوكت ($time) — والأقرب أول';
+  static const String replacementEmpty =
+      'ما لگينا بديل فاضي بنفس الوكت 😕\n'
+      'جرّب وكت ثاني أو مدينة ثانية — وعربونك المضمون يضل محفوظ إلك';
+  static const String replacementBrowse = 'تصفّح كل الملاعب';
+  static const String bookReplacement = 'احجز البديل';
+  static const String replacementLoading = 'ندوّر إلك بدائل...';
+  static const String awayLabel = 'يبعد';
+
+  // ضمان الحجز
+  static const String guaranteedBadge = 'محجوز مضمون';
+  static const String guaranteedNoDeposit = 'بدون عربون 🎁';
+  static const String guaranteedExplain =
+      'لأن حجزك السابق انلغى مو بذنبك — هذا الحجز بدون عربون';
+  static const String guaranteedCreditsTitle = 'حجوزاتك المضمونة';
+  static String guaranteedCreditsCount(String count) =>
+      'عندك $count حجز مضمون بدون عربون';
+  static const String myCancellationsTitle = 'إلغاءات مو بذنبك';
+  static const String myCancellationsEmpty =
+      'ما عندك أي إلغاء — عاشت إيدك 👏';
+  static const String notMyFaultLabel = 'إلغاء مو بذنبك';
+  static const String compensatedLabel = 'استخدمت الضمان ✅';
+
+  // نسبة الالتزام
+  static const String reliabilityLabel = 'نسبة الالتزام';
+  static String reliabilityValue(String percent) => '$percent٪ التزام';
+  static const String reliabilityGood = 'ملعب جاد بحجوزاته ✅';
+  static const String reliabilityRisky = 'ينلغي عنده أحياناً ⚠️';
+  static const String reliabilityNew = 'بعده جديد — ما عده تاريخ كافي';
+  static String reliabilityTooltip(String kept, String cancelled) =>
+      'أكمل $kept حجز وألغى $cancelled';
+
   // عام
   static const String loading = 'لحظة...';
   static const String retry = 'جرّب مرة ثانية';

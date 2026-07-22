@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/booking.dart';
+import '../../../core/models/cancellation.dart';
 import '../../../core/navigation/app_tabs.dart';
 import '../../../core/services/bookings_service.dart';
+import '../../../core/services/cancellations_service.dart';
+import 'replacement_screen.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/utils/date_labels.dart';
@@ -27,20 +30,48 @@ class _BookingsTabState extends State<BookingsTab> {
   /// جلب دفعة جاري — ما نطلب نفس الدفعة مرتين
   bool _loadingMore = false;
 
+  /// إلغاءات ما شافها اللاعب — يطلع منها تنبيه فوق القائمة
+  List<Cancellation> _unseen = const [];
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadCancellations();
     // أي حجز جديد أو إلغاء بأي مكان بالتطبيق → القائمة تتحدث لحالها
     BookingsService.instance.revision.addListener(_load);
+    CancellationsService.instance.revision.addListener(_loadCancellations);
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     BookingsService.instance.revision.removeListener(_load);
+    CancellationsService.instance.revision.removeListener(_loadCancellations);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCancellations() async {
+    try {
+      final unseen = await CancellationsService.instance.unseen();
+      if (mounted) setState(() => _unseen = unseen);
+    } catch (_) {
+      // التنبيه ثانوي — فشله ما يأثر على القائمة
+    }
+  }
+
+  void _openReplacements(Cancellation cancellation) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReplacementScreen(cancellation: cancellation),
+      ),
+    );
+  }
+
+  Future<void> _dismissAlert(Cancellation cancellation) async {
+    await CancellationsService.instance.markSeen(cancellation);
+    await _loadCancellations();
   }
 
   Future<void> _load() async {
@@ -219,6 +250,14 @@ class _BookingsTabState extends State<BookingsTab> {
                 ],
               ),
             ),
+            // تنبيه الإلغاء — أهم شي يشوفه اللاعب أول ما يفتح حجوزاته
+            for (final cancellation in _unseen)
+              _CancelAlert(
+                key: Key('cancel-alert-${cancellation.id}'),
+                cancellation: cancellation,
+                onSeeAlternatives: () => _openReplacements(cancellation),
+                onDismiss: () => _dismissAlert(cancellation),
+              ),
             Expanded(
               child: RefreshIndicator(
                 color: AppColors.primary,
@@ -252,6 +291,148 @@ class _BookingsTabState extends State<BookingsTab> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// تنبيه: صاحب الملعب ألغى حجزك — مع طريق مباشر للبدائل
+class _CancelAlert extends StatelessWidget {
+  const _CancelAlert({
+    super.key,
+    required this.cancellation,
+    required this.onSeeAlternatives,
+    required this.onDismiss,
+  });
+
+  final Cancellation cancellation;
+  final VoidCallback onSeeAlternatives;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 5, color: AppColors.error),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 20,
+                      color: AppColors.error,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        AppStrings.cancelAlertTitle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.dark,
+                        ),
+                      ),
+                    ),
+                    // شارة: الإلغاء مو بذنب اللاعب
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        AppStrings.notMyFaultLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryDeep,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  AppStrings.cancelAlertBody(
+                    cancellation.fieldName,
+                    DateLabels.label(cancellation.date),
+                  ),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.grey,
+                    height: 1.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: AppColors.hairline)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Pressable(
+                    onTap: onSeeAlternatives,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: BorderDirectional(
+                          end: BorderSide(color: AppColors.hairline),
+                        ),
+                      ),
+                      child: Text(
+                        AppStrings.cancelAlertAction,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Pressable(
+                    onTap: onDismiss,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      alignment: Alignment.center,
+                      child: Text(
+                        AppStrings.cancelAlertDismiss,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

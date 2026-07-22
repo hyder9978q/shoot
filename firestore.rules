@@ -63,12 +63,56 @@ service cloud.firestore {
     // - الإنشاء باسمه فقط، ومعرّف المستند fieldId_date_hour يمنع
     //   الحجز المزدوج: الكتابة فوق حجز شخص ثاني = update مرفوض
     // - التعديل والحذف لصاحب الحجز فقط
+    // - الحذف كذلك لصاحب الملعب (إلغاء اضطراري) — وهذا يوجب عليه
+    //   سجل إلغاء بمجموعة cancellations يشوفه اللاعب وتنحسب منه النسبة
     match /bookings/{bookingId} {
+      function isFieldOwner(fieldId) {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/fields/$(fieldId))
+          && get(/databases/$(database)/documents/fields/$(fieldId))
+               .data.ownerId == request.auth.uid;
+      }
+
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null
+      allow update: if request.auth != null
         && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || isFieldOwner(resource.data.fieldId));
+    }
+
+    // سجل الإلغاءات الصادرة من أصحاب الملاعب — دليل دائم:
+    // - القراءة لأي مسجّل (منها تنحسب نسبة الالتزام المعروضة للاعبين)
+    // - الكتابة فقط من صاحب الملعب نفسه وعلى ملعبه هو
+    // - اللاعب المتضرر يعدّل حقلين بس: شافه (seen) واستخدم ضمانه
+    //   (compensated) — ما يگدر يغيّر الوقائع
+    // - ما ينحذف أبداً: لا صاحب الملعب يمحي تاريخه ولا اللاعب
+    match /cancellations/{cancellationId} {
+      function ownsField(fieldId) {
+        return exists(/databases/$(database)/documents/fields/$(fieldId))
+          && get(/databases/$(database)/documents/fields/$(fieldId))
+               .data.ownerId == request.auth.uid;
+      }
+
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && ownsField(request.resource.data.fieldId)
+        && request.resource.data.playerId is string
+        && request.resource.data.playerId != request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 120
+        && request.resource.data.seen == false
+        && request.resource.data.compensated == false;
+      allow update: if request.auth != null
+        && resource.data.playerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['seen', 'compensated'])
+        && request.resource.data.seen is bool
+        && request.resource.data.compensated is bool;
+      allow delete: if false;
     }
 
     // ملف المستخدم (الاسم والمفضلة): صاحبه فقط يقرأ ويكتب

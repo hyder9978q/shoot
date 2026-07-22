@@ -16,6 +16,9 @@ class Booking {
     required this.date,
     required this.hour,
     required this.deposit,
+    this.userPhone = '',
+    this.depositWaived = false,
+    this.replacesCancellationId = '',
   });
 
   factory Booking.fromMap(String id, Map<String, dynamic> data) {
@@ -33,6 +36,10 @@ class Booking {
       date: (data['date'] as String?) ?? '',
       hour: (data['hour'] as num?)?.toInt() ?? 0,
       deposit: (data['deposit'] as num?)?.toInt() ?? 0,
+      userPhone: (data['userPhone'] as String?) ?? '',
+      depositWaived: (data['depositWaived'] as bool?) ?? false,
+      replacesCancellationId:
+          (data['replacesCancellationId'] as String?) ?? '',
     );
   }
 
@@ -53,6 +60,18 @@ class Booking {
   /// العربون المدفوع بالدينار
   final int deposit;
 
+  /// رقم اللاعب — حتى صاحب الملعب يگدر يوصله بالواتساب لو اضطر يلغي
+  final String userPhone;
+
+  /// حجز بديل بعد إلغاء مو ذنب اللاعب → معفي من العربون ("محجوز مضمون")
+  final bool depositWaived;
+
+  /// معرّف سجل الإلغاء اللي هذا الحجز بديل عنه — فارغ = حجز عادي
+  final String replacesCancellationId;
+
+  /// حجز مضمون؟ (بديل عن إلغاء مو ذنب اللاعب)
+  bool get isGuaranteed => replacesCancellationId.isNotEmpty;
+
   Map<String, dynamic> toMap() => {
         'userId': userId,
         'fieldId': fieldId,
@@ -63,6 +82,9 @@ class Booking {
         'date': date,
         'hour': hour,
         'deposit': deposit,
+        'userPhone': userPhone,
+        'depositWaived': depositWaived,
+        'replacesCancellationId': replacesCancellationId,
       };
 
   String get location => '$area، $city';

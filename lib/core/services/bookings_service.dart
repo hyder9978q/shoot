@@ -32,6 +32,11 @@ class BookingsService {
       ? 'mock-user'
       : FirebaseAuth.instance.currentUser?.uid ?? '';
 
+  /// رقم اللاعب — ينحفظ بالحجز حتى صاحب الملعب يوصله لو اضطر يلغي
+  String get _phone => _useMock
+      ? '+9647701234567'
+      : FirebaseAuth.instance.currentUser?.phoneNumber ?? '';
+
   /// تاريخ اليوم بصيغة yyyy-MM-dd
   static String todayDate() => DateLabels.dateFor(0);
 
@@ -121,15 +126,25 @@ class BookingsService {
   final Set<String> _cancelling = {};
 
   /// إنشاء حجز بيوم معيّن — يرمي [SlotTakenException] إذا الوقت انحجز قبل ثواني
+  ///
+  /// [replacesCancellationId] يخلي الحجز "محجوز مضمون" (بديل عن إلغاء
+  /// مو ذنب اللاعب)، و[depositWaived] يعفيه من العربون.
   Future<Booking> createBooking(
     Field field,
     TimeSlot slot, {
     String? date,
+    String replacesCancellationId = '',
+    bool depositWaived = false,
   }) {
     final pending = _pendingCreate;
     if (pending != null) return pending;
-    final future = _createBooking(field, slot, date: date)
-        .whenComplete(() => _pendingCreate = null);
+    final future = _createBooking(
+      field,
+      slot,
+      date: date,
+      replacesCancellationId: replacesCancellationId,
+      depositWaived: depositWaived,
+    ).whenComplete(() => _pendingCreate = null);
     _pendingCreate = future;
     return future;
   }
@@ -138,6 +153,8 @@ class BookingsService {
     Field field,
     TimeSlot slot, {
     String? date,
+    String replacesCancellationId = '',
+    bool depositWaived = false,
   }) async {
     date ??= todayDate();
     final booking = Booking(
@@ -150,7 +167,10 @@ class BookingsService {
       sport: field.sport,
       date: date,
       hour: slot.hour,
-      deposit: FieldsService.depositAmount,
+      deposit: depositWaived ? 0 : FieldsService.depositAmount,
+      userPhone: _phone,
+      depositWaived: depositWaived,
+      replacesCancellationId: replacesCancellationId,
     );
 
     if (_useMock) {
@@ -234,6 +254,78 @@ class BookingsService {
     return [
       for (final doc in docs) Booking.fromMap(doc.id, doc.data()),
     ];
+  }
+
+  /// الملاعب المحجوزة بتاريخ وساعة معيّنة — يستخدمها بحث البدائل
+  Future<Set<String>> takenFieldIdsAt(String date, int hour) async {
+    if (_useMock) {
+      return {
+        for (final b in _mockBookings)
+          if (b.date == date && b.hour == hour) b.fieldId,
+        // النمط التجريبي: كل ساعة تقبل القسمة على ٣ محجوزة اليوم
+        if (date == todayDate() && hour % 3 == 0) ...{'f1', 'f2'},
+      };
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('date', isEqualTo: date)
+          .where('hour', isEqualTo: hour)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return {
+        for (final doc in snapshot.docs)
+          (doc.data()['fieldId'] as String?) ?? '',
+      };
+    } catch (_) {
+      // بدون نت: ما نخفي بدائل — نعرضها وتنكشف عند الحجز
+      return const {};
+    }
+  }
+
+  /// حذف الحجز بعد ما ألغاه صاحب الملعب — يتحرر الوقت للاعبين الثانين.
+  ///
+  /// منفصل عن [cancelBooking] لأن الإلغاء هنا مو من اللاعب:
+  /// السجل الدائم ينكتب بـ CancellationsService قبل الحذف.
+  Future<void> removeForOwnerCancel(Booking booking) async {
+    if (_useMock) {
+      _mockBookings.removeWhere((b) => b.id == booking.id);
+      revision.value++;
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('bookings')
+        .doc(booking.id)
+        .delete()
+        .timeout(const Duration(seconds: 15));
+    revision.value++;
+  }
+
+  /// حجوزات ملعب معيّن بيوم معيّن — لوحة صاحب الملعب تستخدمها
+  /// حتى يعرف منو اللاعب بكل وقت محجوز
+  Future<List<Booking>> fieldBookings(String fieldId, String date) async {
+    if (_useMock) {
+      return [
+        for (final b in _mockBookings)
+          if (b.fieldId == fieldId && b.date == date) b,
+      ];
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('fieldId', isEqualTo: fieldId)
+          .where('date', isEqualTo: date)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return [
+        for (final doc in snapshot.docs) Booking.fromMap(doc.id, doc.data()),
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين

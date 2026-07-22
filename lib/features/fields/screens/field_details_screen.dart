@@ -14,6 +14,7 @@ import '../../../core/widgets/field_card.dart' show FavoriteButton;
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../../core/widgets/rating_stars.dart';
+import '../../../core/widgets/reliability_badge.dart';
 import '../../bookings/screens/booking_checkout_screen.dart';
 
 /// تفاصيل الملعب + اختيار الوقت + تأكيد الحجز بالعربون
@@ -500,6 +501,9 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                       ),
                     ],
                   ),
+                  // نسبة الالتزام — تبين بس إذا عند الملعب تاريخ كافي
+                  // (الشارة تحمل مسافتها بنفسها حتى ما تزيح شي وهي مخفية)
+                  ReliabilityBadge(fieldId: field.id),
                   // عن الملعب
                   if (field.description.isNotEmpty) ...[
                     const _SectionTitle(AppStrings.aboutFieldTitle),

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/models/booking.dart';
 import '../../../core/models/field.dart';
 import '../../../core/services/bookings_service.dart';
+import '../../../core/services/cancellations_service.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
 import 'field_manage_screen.dart';
@@ -30,6 +34,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   /// أوقات اليوم لكل ملعب — null = بعدها تتحمل
   Map<String, List<TimeSlot>>? _slotsByField;
 
+  /// حجوزات اليوم لكل ملعب — منها نعرف منو اللاعب بكل وقت محجوز
+  Map<String, List<Booking>> _bookingsByField = const {};
+
   /// عدد الحجوزات لكل يوم من آخر ٧ أيام (لمخطط الأرباح)
   List<int> _weekBookings = const [0, 0, 0, 0, 0, 0, 0];
 
@@ -47,13 +54,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _load() async {
+    final today = BookingsService.todayDate();
     final result = <String, List<TimeSlot>>{};
+    final bookings = <String, List<Booking>>{};
     for (final field in _fields) {
       try {
-        result[field.id] = await BookingsService.instance
-            .slotsFor(field, BookingsService.todayDate());
+        result[field.id] =
+            await BookingsService.instance.slotsFor(field, today);
+        bookings[field.id] =
+            await BookingsService.instance.fieldBookings(field.id, today);
       } catch (_) {
         result[field.id] = const [];
+        bookings[field.id] = const [];
       }
     }
 
@@ -76,9 +88,119 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (mounted) {
       setState(() {
         _slotsByField = result;
+        _bookingsByField = bookings;
         _weekBookings = week;
       });
     }
+  }
+
+  /// إلغاء حجز لاعب — يسأل عن السبب، يسجّل الإلغاء، ويفتح واتساب للاعتذار
+  Future<void> _cancelBooking(Field field, Booking booking) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(AppStrings.ownerCancelTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppStrings.ownerCancelBody,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.dark.withValues(alpha: 0.8),
+                height: 1.7,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: reasonController,
+              // ما نسمح بأي رمز خطير بسبب الإلغاء
+              inputFormatters: [InputSanitizer.deny()],
+              maxLength: CancellationsService.reasonMaxLength,
+              maxLines: 2,
+              minLines: 1,
+              decoration: InputDecoration(
+                hintText: AppStrings.ownerCancelReasonHint,
+                counterText: '',
+                filled: true,
+                fillColor: AppColors.subtleFill,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(AppStrings.ownerCancelKeep),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              minimumSize: const Size(0, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(AppStrings.ownerCancelConfirm),
+          ),
+        ],
+      ),
+    );
+
+    final reason = reasonController.text;
+    reasonController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await CancellationsService.instance
+          .cancelByOwner(field, booking, reason: reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.ownerCancelDone)),
+      );
+      await _notifyPlayer(field, booking, reason);
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.ownerCancelError)),
+      );
+    }
+  }
+
+  /// اعتذار بالواتساب للاعب — بلهجة مهذّبة مع ذكر البديل والضمان
+  Future<void> _notifyPlayer(
+    Field field,
+    Booking booking,
+    String reason,
+  ) async {
+    if (booking.userPhone.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.ownerCancelNoPhone)),
+      );
+      return;
+    }
+    final message = AppStrings.ownerCancelWhatsapp(
+      fieldName: field.name,
+      dayLabel: DateLabels.label(booking.date),
+      time: '${booking.hour.toString().padLeft(2, '0')}:00',
+      reason: InputSanitizer.clean(
+        reason,
+        maxLength: CancellationsService.reasonMaxLength,
+      ),
+    );
+    final phone = booking.userPhone.replaceAll('+', '');
+    await launchUrl(
+      Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}'),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   /// حجوزات اليوم عبر كل الملاعب
@@ -345,8 +467,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   child: _OwnerFieldCard(
                     field: field,
                     slots: slotsByField[field.id] ?? const [],
+                    bookings: _bookingsByField[field.id] ?? const [],
                     onFieldChanged: (updated) =>
                         setState(() => _fields[i] = updated),
+                    onCancelBooking: (booking) =>
+                        _cancelBooking(field, booking),
                   ),
                 ),
             // تلميح: سد الأوقات يصير بالحجز العادي
@@ -453,12 +578,26 @@ class _OwnerFieldCard extends StatelessWidget {
   const _OwnerFieldCard({
     required this.field,
     required this.slots,
+    required this.bookings,
     required this.onFieldChanged,
+    required this.onCancelBooking,
   });
 
   final Field field;
   final List<TimeSlot> slots;
+
+  /// حجوزات اليوم — منها نلگه حجز الوقت اللي يضغط عليه المالك
+  final List<Booking> bookings;
   final ValueChanged<Field> onFieldChanged;
+  final ValueChanged<Booking> onCancelBooking;
+
+  /// حجز هذا الوقت — null إذا الوقت فاضي أو الحجز مو محمّل
+  Booking? _bookingAt(int hour) {
+    for (final b in bookings) {
+      if (b.hour == hour) return b;
+    }
+    return null;
+  }
 
   void _openManage(BuildContext context) {
     Navigator.of(context).push(
@@ -582,55 +721,72 @@ class _OwnerFieldCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                // شبكة الأوقات (للعرض فقط) — العنوان فوق بالقسم
+                // شبكة الأوقات — الوقت المحجوز يُضغط لإلغائه
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
                     for (final slot in slots)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: slot.isBooked
-                              ? AppColors.primary
-                              : AppColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: slot.isBooked
-                                ? AppColors.primary
-                                : AppColors.border,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              slot.label,
-                              textDirection: TextDirection.ltr,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 11.5,
+                      Builder(
+                        builder: (context) {
+                          final booking =
+                              slot.isBooked ? _bookingAt(slot.hour) : null;
+                          final chip = Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: slot.isBooked
+                                  ? AppColors.primary
+                                  : AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
                                 color: slot.isBooked
-                                    ? AppColors.white
-                                    : AppColors.dark,
+                                    ? AppColors.primary
+                                    : AppColors.border,
                               ),
                             ),
-                            Text(
-                              slot.isBooked
-                                  ? AppStrings.bookedLabel
-                                  : AppStrings.freeLabel,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10,
-                                color: slot.isBooked
-                                    ? AppColors.white.withValues(alpha: 0.9)
-                                    : AppColors.grey,
-                              ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  slot.label,
+                                  textDirection: TextDirection.ltr,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11.5,
+                                    color: slot.isBooked
+                                        ? AppColors.white
+                                        : AppColors.dark,
+                                  ),
+                                ),
+                                Text(
+                                  slot.isBooked
+                                      ? (booking == null
+                                          ? AppStrings.bookedLabel
+                                          : AppStrings.ownerCancelSlotAction)
+                                      : AppStrings.freeLabel,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 10,
+                                    color: slot.isBooked
+                                        ? AppColors.white
+                                            .withValues(alpha: 0.9)
+                                        : AppColors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+
+                          // بس الأوقات اللي نعرف حجزها تنضغط للإلغاء
+                          if (booking == null) return chip;
+                          return Pressable(
+                            key: Key('owner-slot-${field.id}-${slot.hour}'),
+                            onTap: () => onCancelBooking(booking),
+                            child: chip,
+                          );
+                        },
                       ),
                   ],
                 ),

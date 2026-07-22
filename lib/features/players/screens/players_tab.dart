@@ -18,20 +18,48 @@ class PlayersTab extends StatefulWidget {
 }
 
 class _PlayersTabState extends State<PlayersTab> {
+  final _scrollController = ScrollController();
   List<PlayerRequest>? _requests;
   bool _error = false;
+
+  /// جلب دفعة جاري — ما نطلب نفس الدفعة مرتين
+  bool _loadingMore = false;
 
   @override
   void initState() {
     super.initState();
     _load();
     PlayerRequestsService.instance.revision.addListener(_load);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     PlayerRequestsService.instance.revision.removeListener(_load);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// قربنا من نهاية القائمة؟ نجيب الدفعة الجاية
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 400) return;
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !PlayerRequestsService.instance.hasMore) return;
+    _loadingMore = true;
+    try {
+      final more = await PlayerRequestsService.instance.moreRequests();
+      if (!mounted || more.isEmpty) return;
+      setState(() => _requests = [...?_requests, ...more]);
+    } catch (_) {
+      // فشل دفعة إضافية ما يكسر القائمة المعروضة
+    } finally {
+      _loadingMore = false;
+    }
   }
 
   Future<void> _load() async {
@@ -180,15 +208,22 @@ class _PlayersTabState extends State<PlayersTab> {
                     : requests.isEmpty
                         ? _EmptyState(error: _error, onPost: _openNewRequest)
                         : ListView.separated(
+                            controller: _scrollController,
                             padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
-                            itemCount: requests.length,
+                            // عنصر إضافي بالنهاية = هيكل تحميل الدفعة الجاية
+                            itemCount: requests.length +
+                                (PlayerRequestsService.instance.hasMore
+                                    ? 1
+                                    : 0),
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 16),
-                            itemBuilder: (_, i) => _RequestCard(
-                              request: requests[i],
-                              isMine: requests[i].userId == myId,
-                              onDelete: () => _delete(requests[i]),
-                            ),
+                            itemBuilder: (_, i) => i >= requests.length
+                                ? const _RequestSkeleton()
+                                : _RequestCard(
+                                    request: requests[i],
+                                    isMine: requests[i].userId == myId,
+                                    onDelete: () => _delete(requests[i]),
+                                  ),
                           ),
               ),
             ),

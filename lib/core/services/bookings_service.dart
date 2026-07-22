@@ -183,26 +183,57 @@ class BookingsService {
     return booking;
   }
 
-  /// حجوزاتي — الأحدث أولاً
+  /// عدد الحجوزات بالدفعة الوحدة
+  static const int pageSize = 20;
+
+  /// مؤشر آخر حجز وصلنا له — منه تبدي الدفعة الجاية
+  DocumentSnapshot<Map<String, dynamic>>? _cursor;
+
+  /// باقي حجوزات ما تحمّلت؟
+  bool _hasMore = true;
+
+  /// هل بعد بيه حجوزات تنتظر التحميل؟
+  bool get hasMore => _hasMore;
+
+  /// حجوزاتي — أول دفعة، الأحدث أولاً.
+  /// كل نداء يبدي من الصفر (السحب-للتحديث وأي حجز/إلغاء).
   Future<List<Booking>> myBookings() async {
+    _cursor = null;
+    _hasMore = true;
+    return _fetchBookingsPage();
+  }
+
+  /// الدفعة الجاية — يناديها التمرير لأسفل بتبويب حجوزاتي
+  Future<List<Booking>> moreBookings() async {
+    if (!_hasMore) return const [];
+    return _fetchBookingsPage();
+  }
+
+  Future<List<Booking>> _fetchBookingsPage() async {
     if (_useMock) {
+      _hasMore = false;
       return _mockBookings.reversed.toList();
     }
 
-    final snapshot = await FirebaseFirestore.instance
+    // الترتيب بالسيرفر ضروري حتى يشتغل مؤشر الدفعات
+    var query = FirebaseFirestore.instance
         .collection('bookings')
         .where('userId', isEqualTo: _uid)
-        .get()
-        .timeout(const Duration(seconds: 10));
-    final bookings = [
-      for (final doc in snapshot.docs) Booking.fromMap(doc.id, doc.data()),
+        .orderBy('date', descending: true)
+        .orderBy('hour', descending: true)
+        .limit(pageSize);
+    final cursor = _cursor;
+    if (cursor != null) query = query.startAfterDocument(cursor);
+
+    final snapshot = await query.get().timeout(const Duration(seconds: 10));
+    final docs = snapshot.docs;
+    if (docs.isNotEmpty) _cursor = docs.last;
+    // دفعة ناقصة = وصلنا للنهاية
+    _hasMore = docs.length == pageSize;
+
+    return [
+      for (final doc in docs) Booking.fromMap(doc.id, doc.data()),
     ];
-    // ترتيب بالتاريخ ثم الساعة (الأحدث أولاً) — بدون فهرس مركّب
-    bookings.sort((a, b) {
-      final byDate = b.date.compareTo(a.date);
-      return byDate != 0 ? byDate : b.hour.compareTo(a.hour);
-    });
-    return bookings;
   }
 
   /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين

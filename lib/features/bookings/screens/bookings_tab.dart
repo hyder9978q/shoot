@@ -20,8 +20,12 @@ class BookingsTab extends StatefulWidget {
 }
 
 class _BookingsTabState extends State<BookingsTab> {
+  final _scrollController = ScrollController();
   List<Booking>? _bookings;
   bool _error = false;
+
+  /// جلب دفعة جاري — ما نطلب نفس الدفعة مرتين
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -29,11 +33,13 @@ class _BookingsTabState extends State<BookingsTab> {
     _load();
     // أي حجز جديد أو إلغاء بأي مكان بالتطبيق → القائمة تتحدث لحالها
     BookingsService.instance.revision.addListener(_load);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     BookingsService.instance.revision.removeListener(_load);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -45,6 +51,7 @@ class _BookingsTabState extends State<BookingsTab> {
           _bookings = bookings;
           _error = false;
         });
+        _fillSelectedTab();
       }
     } catch (_) {
       if (mounted) {
@@ -55,6 +62,47 @@ class _BookingsTabState extends State<BookingsTab> {
       }
     }
   }
+
+  /// قربنا من نهاية القائمة؟ نجيب الدفعة الجاية
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 400) return;
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !BookingsService.instance.hasMore) return;
+    _loadingMore = true;
+    try {
+      final more = await BookingsService.instance.moreBookings();
+      if (!mounted || more.isEmpty) return;
+      setState(() => _bookings = [...?_bookings, ...more]);
+    } catch (_) {
+      // فشل دفعة إضافية ما يكسر القائمة المعروضة
+    } finally {
+      _loadingMore = false;
+    }
+  }
+
+  /// الحجوزات مرتبة بالأحدث، فالتبويب "السابقة" ممكن يطلع فارغ
+  /// وهو بالحقيقة بدفعة ما وصلت بعد — نكمّل تحميل لحد ما يبين شي.
+  Future<void> _fillSelectedTab() async {
+    while (mounted &&
+        _shown().isEmpty &&
+        BookingsService.instance.hasMore &&
+        !_loadingMore) {
+      final before = _bookings?.length ?? 0;
+      await _loadMore();
+      if (!mounted || (_bookings?.length ?? 0) == before) return;
+    }
+  }
+
+  /// حجوزات التبويب المختار
+  List<Booking> _shown() => [
+        for (final b in _bookings ?? const <Booking>[])
+          if (_isUpcoming(b) == (_tab == 0)) b,
+      ];
 
   Future<void> _cancel(Booking booking) async {
     final confirmed = await showDialog<bool>(
@@ -116,13 +164,7 @@ class _BookingsTabState extends State<BookingsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final all = _bookings;
-    final List<Booking>? shown = all == null
-        ? null
-        : [
-            for (final b in all)
-              if (_isUpcoming(b) == (_tab == 0)) b,
-          ];
+    final List<Booking>? shown = _bookings == null ? null : _shown();
 
     return Container(
       color: AppColors.background,
@@ -158,12 +200,18 @@ class _BookingsTabState extends State<BookingsTab> {
                         _SegTab(
                           label: AppStrings.upcomingTab,
                           selected: _tab == 0,
-                          onTap: () => setState(() => _tab = 0),
+                          onTap: () {
+                            setState(() => _tab = 0);
+                            _fillSelectedTab();
+                          },
                         ),
                         _SegTab(
                           label: AppStrings.pastTab,
                           selected: _tab == 1,
-                          onTap: () => setState(() => _tab = 1),
+                          onTap: () {
+                            setState(() => _tab = 1);
+                            _fillSelectedTab();
+                          },
                         ),
                       ],
                     ),
@@ -185,15 +233,20 @@ class _BookingsTabState extends State<BookingsTab> {
                     : shown.isEmpty
                         ? _EmptyState(error: _error, past: _tab == 1)
                         : ListView.separated(
+                            controller: _scrollController,
                             padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
-                            itemCount: shown.length,
+                            // عنصر إضافي بالنهاية = هيكل تحميل الدفعة الجاية
+                            itemCount: shown.length +
+                                (BookingsService.instance.hasMore ? 1 : 0),
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 16),
-                            itemBuilder: (_, i) => _BookingCard(
-                              booking: shown[i],
-                              past: _tab == 1,
-                              onCancel: () => _cancel(shown[i]),
-                            ),
+                            itemBuilder: (_, i) => i >= shown.length
+                                ? const _BookingSkeleton()
+                                : _BookingCard(
+                                    booking: shown[i],
+                                    past: _tab == 1,
+                                    onCancel: () => _cancel(shown[i]),
+                                  ),
                           ),
               ),
             ),
@@ -257,16 +310,23 @@ class _BookingCard extends StatelessWidget {
   final bool past;
   final VoidCallback onCancel;
 
-  void _openField(BuildContext context) {
-    final field = FieldsService.instance.byId(booking.fieldId);
-    if (field == null) {
+  Future<void> _openField(BuildContext context) async {
+    // الملعب ممكن يكون بدفعة ما تحمّلت بعد — نكمّل التحميل قبل ما نستسلم
+    var field = FieldsService.instance.byId(booking.fieldId);
+    if (field == null && FieldsService.instance.hasMore) {
+      await FieldsService.instance.loadAllFields();
+      if (!context.mounted) return;
+      field = FieldsService.instance.byId(booking.fieldId);
+    }
+    final found = field;
+    if (found == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.fieldNotFound)),
       );
       return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => FieldDetailsScreen(field: field)),
+      MaterialPageRoute(builder: (_) => FieldDetailsScreen(field: found)),
     );
   }
 

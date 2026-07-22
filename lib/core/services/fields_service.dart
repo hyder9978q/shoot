@@ -1,8 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart' hide Field;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/field.dart';
@@ -24,31 +23,129 @@ class FieldsService {
 
   static final FieldsService instance = FieldsService._();
 
+  /// عدد الملاعب بالدفعة الوحدة — أول دفعة تكفي ملء الشاشة وزيادة
+  static const int defaultPageSize = 15;
+
+  /// حجم دفعة مصغّر للاختبارات فقط (البيانات التجريبية أقل من الدفعة الكاملة)
+  @visibleForTesting
+  static int? debugPageSize;
+
+  static int get pageSize => debugPageSize ?? defaultPageSize;
+
+  /// تصفير كامل — للاختبارات حتى كل اختبار يبدي من نقطة معروفة
+  @visibleForTesting
+  void debugReset() {
+    _cache = null;
+    _cursor = null;
+    _mockLoaded = 0;
+    _hasMore = true;
+    _pendingPage = null;
+  }
+
+  /// كم ملعب تجريبي تحمّل لحد الآن (وضع التجربة يقلّد الدفعات)
+  int _mockLoaded = 0;
+
   /// آخر قائمة محمّلة — البحث والفلترة يشتغلون عليها فورياً
   List<Field>? _cache;
 
-  /// تحميل الملاعب (مرة وحدة، وتنخزن بالذاكرة)
+  /// مؤشر آخر مستند وصلنا له — منه تبدي الدفعة الجاية
+  DocumentSnapshot<Map<String, dynamic>>? _cursor;
+
+  /// باقي بالسيرفر ملاعب ما تحمّلت؟
+  bool _hasMore = true;
+
+  /// هل بعد بيه ملاعب تنتظر التحميل؟ (الرئيسية تستخدمه لمؤشر التمرير)
+  bool get hasMore => _hasMore;
+
+  /// يزيد مع كل دفعة جديدة توصل — الشاشات تسمعه وتحدّث نفسها
+  final ValueNotifier<int> revision = ValueNotifier(0);
+
+  /// جلب جاري — أي نداء ثاني بنفس اللحظة ينتظر نفس الدفعة
+  /// بدل ما يطلبها مرتين من الشبكة
+  Future<List<Field>>? _pendingPage;
+
+  /// أول دفعة من الملاعب — تخلي الشاشة تظهر بسرعة.
+  /// الباقي يجي مع التمرير ([loadMore]) أو عند أي عملية
+  /// تحتاج القائمة كاملة ([loadAllFields]).
   Future<List<Field>> loadFields() async {
     final cached = _cache;
     if (cached != null) return cached;
+    return _fetchNextPage();
+  }
 
-    // نسخة قابلة للتعديل من البيانات التجريبية — حتى تعديلات المالك
-    // بوضع التجربة تشتغل بالذاكرة
-    if (Firebase.apps.isEmpty) return _cache = List.of(_mockFields);
+  /// الدفعة الجاية — يناديها التمرير لأسفل بالرئيسية
+  Future<List<Field>> loadMore() async {
+    if (!_hasMore) return _cache ?? const [];
+    return _fetchNextPage();
+  }
+
+  /// القائمة كاملة — تكمّل كل الدفعات الباقية.
+  ///
+  /// ضرورية لأي شي يشتغل على كل الملاعب: الخريطة، البحث والفلترة،
+  /// قائمة المدن، وملاعب المالك — حتى ما تضيع ملاعب ما وصلت بعد.
+  Future<List<Field>> loadAllFields() async {
+    var list = await loadFields();
+    while (_hasMore) {
+      list = await _fetchNextPage();
+    }
+    return list;
+  }
+
+  Future<List<Field>> _fetchNextPage() {
+    final pending = _pendingPage;
+    if (pending != null) return pending;
+    final future = _fetchPage().whenComplete(() => _pendingPage = null);
+    _pendingPage = future;
+    return future;
+  }
+
+  Future<List<Field>> _fetchPage() async {
+    // وضع التجربة: نفس منطق الدفعات بس على البيانات التجريبية
+    // (نسخة قابلة للتعديل حتى تعديلات المالك تشتغل بالذاكرة)
+    if (Firebase.apps.isEmpty) {
+      final list = _cache ??= <Field>[];
+      final next = _mockFields.skip(_mockLoaded).take(pageSize).toList();
+      _mockLoaded += next.length;
+      list.addAll(next);
+      _hasMore = _mockLoaded < _mockFields.length;
+      if (next.isNotEmpty) revision.value++;
+      return list;
+    }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
+      // الترتيب بالسيرفر ضروري حتى يشتغل مؤشر الدفعات (startAfterDocument)
+      var query = FirebaseFirestore.instance
           .collection('fields')
           .where('isActive', isEqualTo: true)
-          .get()
-          .timeout(const Duration(seconds: 10));
-      final fields = [
-        for (final doc in snapshot.docs) Field.fromMap(doc.id, doc.data()),
-      ]..sort((a, b) => b.rating.compareTo(a.rating));
-      return _cache = fields.isEmpty ? List.of(_mockFields) : fields;
+          .orderBy('rating', descending: true)
+          .limit(pageSize);
+      final cursor = _cursor;
+      if (cursor != null) query = query.startAfterDocument(cursor);
+
+      final snapshot = await query.get().timeout(const Duration(seconds: 10));
+      final docs = snapshot.docs;
+      if (docs.isNotEmpty) _cursor = docs.last;
+      // دفعة ناقصة = وصلنا للنهاية
+      _hasMore = docs.length == pageSize;
+
+      final list = _cache ??= <Field>[];
+      list.addAll([
+        for (final doc in docs) Field.fromMap(doc.id, doc.data()),
+      ]);
+
+      // ولا ملعب وصل أبداً؟ نرجع للبيانات التجريبية بدل شاشة فارغة
+      if (list.isEmpty) {
+        _hasMore = false;
+        return _cache = List.of(_mockFields);
+      }
+
+      revision.value++;
+      return list;
     } catch (_) {
-      // بدون نت أو أي خطأ: نرجع للبيانات التجريبية بدل شاشة فارغة
-      return _cache = List.of(_mockFields);
+      // بدون نت أو أي خطأ: نوقف الدفعات، ونرجع اللي وصل
+      // (أو البيانات التجريبية إذا ما وصل ولا شي)
+      _hasMore = false;
+      return _cache ??= List.of(_mockFields);
     }
   }
 
@@ -203,10 +300,11 @@ class FieldsService {
     ),
   ];
 
-  /// ملاعب المستخدم الحالي (إذا هو صاحب ملعب) — فارغة للاعب العادي
+  /// ملاعب المستخدم الحالي (إذا هو صاحب ملعب) — فارغة للاعب العادي.
+  /// تحتاج القائمة كاملة حتى ما يضيع ملعب المالك بدفعة ما تحمّلت.
   Future<List<Field>> myFields(String userId) async {
     if (userId.isEmpty) return const [];
-    final fields = await loadFields();
+    final fields = await loadAllFields();
     return fields.where((f) => f.ownerId == userId).toList();
   }
 

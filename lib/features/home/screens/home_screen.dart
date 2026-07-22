@@ -23,6 +23,7 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab>
     with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   Sport? _selectedSport;
 
   /// المدينة المختارة — null = كل العراق
@@ -38,6 +39,7 @@ class _HomeTabState extends State<HomeTab>
   @override
   void initState() {
     super.initState();
+    // أول دفعة فقط — الباقي يجي بالتمرير حتى تظهر الشاشة بسرعة
     FieldsService.instance.loadFields().then((_) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -45,19 +47,44 @@ class _HomeTabState extends State<HomeTab>
           MediaQuery.maybeOf(context)?.disableAnimations ?? false;
       reduceMotion ? _stagger.value = 1 : _stagger.forward();
     });
+    // كل دفعة جديدة توصل → القائمة تتحدث
+    FieldsService.instance.revision.addListener(_onFieldsChanged);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    FieldsService.instance.revision.removeListener(_onFieldsChanged);
+    _scrollController.dispose();
     _stagger.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onFieldsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// قربنا من نهاية القائمة؟ نجيب الدفعة الجاية قبل ما يوصلها المستخدم
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 600) return;
+    if (!FieldsService.instance.hasMore) return;
+    FieldsService.instance.loadMore();
   }
 
   bool get _isBrowsing =>
       _searchController.text.trim().isEmpty &&
       _selectedSport == null &&
       _selectedCity == null;
+
+  /// البحث والفلترة لازم يشوفون كل الملاعب — مو أول دفعة فقط.
+  /// أول ما يفلتر المستخدم نكمّل تحميل الباقي بالخلفية.
+  void _ensureFullCatalog() {
+    if (!FieldsService.instance.hasMore) return;
+    FieldsService.instance.loadAllFields();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,13 +100,22 @@ class _HomeTabState extends State<HomeTab>
         _Header(
           selectedCity: _selectedCity,
           searchController: _searchController,
-          onCityChanged: (city) => setState(() => _selectedCity = city),
-          onSearchChanged: () => setState(() {}),
+          onCityChanged: (city) {
+            _ensureFullCatalog();
+            setState(() => _selectedCity = city);
+          },
+          onSearchChanged: () {
+            _ensureFullCatalog();
+            setState(() {});
+          },
+          onCityMenuOpened: _ensureFullCatalog,
         ),
         Expanded(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              SliverList.list(
+                children: [
               // بلاطات الرياضات — تمرير أفقي، الأنواع أكثر من عرض الشاشة
               Padding(
                 padding: const EdgeInsets.only(top: 22, bottom: 4),
@@ -146,30 +182,43 @@ class _HomeTabState extends State<HomeTab>
                   ],
                 ),
               ),
-              // الملاعب
-              if (_loading)
-                for (var i = 0; i < 3; i++)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(22, 0, 22, 16),
-                    child: _FieldCardSkeleton(),
-                  )
-              else if (fields.isEmpty)
-                _EmptyResults(
-                  onClear: () {
-                    _searchController.clear();
-                    setState(() {
-                      _selectedSport = null;
-                      _selectedCity = null;
-                    });
-                  },
-                )
-              else
-                for (final (i, field) in fields.indexed)
-                  Padding(
+                  // حالات ما بيها بطاقات: تحميل أول دفعة، أو نتائج فارغة
+                  if (_loading)
+                    for (var i = 0; i < 3; i++)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(22, 0, 22, 16),
+                        child: _FieldCardSkeleton(),
+                      )
+                  else if (fields.isEmpty)
+                    _EmptyResults(
+                      onClear: () {
+                        _searchController.clear();
+                        setState(() {
+                          _selectedSport = null;
+                          _selectedCity = null;
+                        });
+                      },
+                    ),
+                ],
+              ),
+              // الملاعب — تنبنى وحدة وحدة عند ظهورها فقط (تمرير خفيف)
+              if (!_loading && fields.isNotEmpty)
+                SliverList.builder(
+                  itemCount: fields.length,
+                  itemBuilder: (context, i) => Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-                    child: _staggered(i, FieldCard(field: field)),
+                    child: _staggered(i, FieldCard(field: fields[i])),
                   ),
-              const SizedBox(height: 12),
+                ),
+              // ذيل القائمة: هيكل تحميل صغير إذا باقي دفعات بالطريق
+              SliverToBoxAdapter(
+                child: !_loading && _isBrowsing && FieldsService.instance.hasMore
+                    ? const Padding(
+                        padding: EdgeInsets.fromLTRB(22, 0, 22, 16),
+                        child: _FieldCardSkeleton(),
+                      )
+                    : const SizedBox(height: 12),
+              ),
             ],
           ),
         ),
@@ -208,12 +257,16 @@ class _Header extends StatelessWidget {
     required this.searchController,
     required this.onCityChanged,
     required this.onSearchChanged,
+    required this.onCityMenuOpened,
   });
 
   final String? selectedCity;
   final TextEditingController searchController;
   final ValueChanged<String?> onCityChanged;
   final VoidCallback onSearchChanged;
+
+  /// فتح قائمة المدن — نكمّل تحميل الملاعب حتى تبين كل المدن
+  final VoidCallback onCityMenuOpened;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +316,7 @@ class _Header extends StatelessWidget {
                           onSelected: (value) => onCityChanged(
                             value == AppStrings.allIraq ? null : value,
                           ),
+                          onOpened: onCityMenuOpened,
                           color: AppColors.surface,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),

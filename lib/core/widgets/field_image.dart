@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../models/field.dart';
@@ -54,26 +55,19 @@ class FieldPhoto extends StatelessWidget {
         children: [
           // الرسمة تبقى خلفية دائمة — لو فشلت الصورة تبقى ظاهرة
           visual,
-          Image.network(
-            url,
+          // الصورة تتنزل مرة وحدة وتتخزن بالجهاز — أي ظهور بعدها فوري
+          CachedNetworkImage(
+            imageUrl: url,
             fit: BoxFit.cover,
             // دخول ناعم بدل الظهور المفاجئ
-            frameBuilder: (context, child, frame, wasSyncLoaded) {
-              if (wasSyncLoaded) return child;
-              return AnimatedOpacity(
-                opacity: frame == null ? 0 : 1,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                child: child,
-              );
-            },
+            fadeInDuration: const Duration(milliseconds: 300),
+            fadeInCurve: Curves.easeOutCubic,
+            // من الذاكرة المحلية: بدون أي وميض
+            fadeOutDuration: Duration.zero,
             // أثناء التحميل: لمعة ناعمة بدل الفراغ
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Shimmer(borderRadius: borderRadius);
-            },
+            placeholder: (_, _) => Shimmer(borderRadius: borderRadius),
             // فشل التحميل: نبقى على الرسمة بدون أي كسر
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            errorWidget: (_, _, _) => const SizedBox.shrink(),
           ),
         ],
       ),

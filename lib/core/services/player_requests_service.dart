@@ -53,23 +53,56 @@ class PlayerRequestsService {
     ),
   ];
 
-  /// إعلانات اليوم المفتوحة — الأقرب وقتاً أولاً
+  /// عدد الإعلانات بالدفعة الوحدة
+  static const int pageSize = 20;
+
+  /// مؤشر آخر إعلان وصلنا له — منه تبدي الدفعة الجاية
+  DocumentSnapshot<Map<String, dynamic>>? _cursor;
+
+  /// باقي إعلانات ما تحمّلت؟
+  bool _hasMore = true;
+
+  /// هل بعد بيه إعلانات تنتظر التحميل؟
+  bool get hasMore => _hasMore;
+
+  /// إعلانات اليوم المفتوحة — أول دفعة، الأقرب وقتاً أولاً.
+  /// كل نداء يبدي من الصفر (السحب-للتحديث وأي نشر/حذف).
   Future<List<PlayerRequest>> todayRequests() async {
+    _cursor = null;
+    _hasMore = true;
+    return _fetchRequestsPage();
+  }
+
+  /// الدفعة الجاية — يناديها التمرير لأسفل بالتبويب
+  Future<List<PlayerRequest>> moreRequests() async {
+    if (!_hasMore) return const [];
+    return _fetchRequestsPage();
+  }
+
+  Future<List<PlayerRequest>> _fetchRequestsPage() async {
     if (_useMock) {
-      final list = [..._mockRequests]..sort((a, b) => a.hour.compareTo(b.hour));
-      return list;
+      _hasMore = false;
+      return [..._mockRequests]..sort((a, b) => a.hour.compareTo(b.hour));
     }
 
-    final snapshot = await FirebaseFirestore.instance
+    // الترتيب بالسيرفر ضروري حتى يشتغل مؤشر الدفعات
+    var query = FirebaseFirestore.instance
         .collection('playerRequests')
         .where('date', isEqualTo: BookingsService.todayDate())
-        .get()
-        .timeout(const Duration(seconds: 10));
-    final requests = [
-      for (final doc in snapshot.docs)
-        PlayerRequest.fromMap(doc.id, doc.data()),
-    ]..sort((a, b) => a.hour.compareTo(b.hour));
-    return requests;
+        .orderBy('hour')
+        .limit(pageSize);
+    final cursor = _cursor;
+    if (cursor != null) query = query.startAfterDocument(cursor);
+
+    final snapshot = await query.get().timeout(const Duration(seconds: 10));
+    final docs = snapshot.docs;
+    if (docs.isNotEmpty) _cursor = docs.last;
+    // دفعة ناقصة = وصلنا للنهاية
+    _hasMore = docs.length == pageSize;
+
+    return [
+      for (final doc in docs) PlayerRequest.fromMap(doc.id, doc.data()),
+    ];
   }
 
   /// نشر جاري؟ — ما ننشر إعلانين بضغطة مكررة

@@ -46,7 +46,8 @@ class _FieldsMapScreenState extends State<FieldsMapScreen> {
   @override
   void initState() {
     super.initState();
-    FieldsService.instance.loadFields().then((all) {
+    // الخريطة تحتاج كل الملاعب — مو أول دفعة فقط
+    FieldsService.instance.loadAllFields().then((all) {
       if (!mounted) return;
       final fields = all.where((f) => f.hasLocation).toList();
 

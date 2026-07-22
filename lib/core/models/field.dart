@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/google_maps.dart';
+import '../utils/time_labels.dart';
 
 /// مرافق الملعب — تنخزن كمفاتيح نصية بـ Firestore
 enum Amenity {
@@ -51,8 +52,7 @@ enum Sport {
     Sport.volleyball ||
     Sport.padel ||
     Sport.tennis => true,
-    Sport.swimming || Sport.gym || Sport.sportsCentre || Sport.therapy =>
-      false,
+    Sport.swimming || Sport.gym || Sport.sportsCentre || Sport.therapy => false,
   };
 
   /// حجز بالجلسة/الموعد بدل الحجز بالساعة (مراكز العلاج)
@@ -98,9 +98,9 @@ class FieldHighlight {
   final bool isVideo;
 
   Map<String, String> toMap() => {
-        'type': isVideo ? 'video' : 'image',
-        'url': url,
-      };
+    'type': isVideo ? 'video' : 'image',
+    'url': url,
+  };
 }
 
 /// «منشأة» — الاسم العام لأي مكان بالتطبيق: ملعب، مسبح، مركز علاج...
@@ -409,9 +409,6 @@ class TimeSlot {
   final int hour;
   final bool isBooked;
 
-  String get label {
-    final start = hour.toString().padLeft(2, '0');
-    final end = (hour + 1).toString().padLeft(2, '0');
-    return '$start:00 - $end:00';
-  }
+  /// نص الوقت للعرض بنظام ١٢ ساعة: ٥:٠٠ مساءً - ٦:٠٠ مساءً
+  String get label => TimeLabels.hourRange12(hour);
 }

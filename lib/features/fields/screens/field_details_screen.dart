@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
 import '../../../core/utils/input_sanitizer.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_card.dart' show FavoriteButton;
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
@@ -55,8 +56,9 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
 
   Future<void> _loadReviews() async {
     try {
-      final reviews =
-          await ReviewsService.instance.fieldReviews(widget.field.id);
+      final reviews = await ReviewsService.instance.fieldReviews(
+        widget.field.id,
+      );
       if (mounted) setState(() => _reviews = reviews);
     } catch (_) {
       if (mounted) setState(() => _reviews = const []);
@@ -66,8 +68,9 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
   Future<void> _openRateDialog() async {
     final myReview = ReviewsService.instance.myReviewIn(_reviews ?? const []);
     var rating = myReview?.rating ?? 5;
-    final commentController =
-        TextEditingController(text: myReview?.comment ?? '');
+    final commentController = TextEditingController(
+      text: myReview?.comment ?? '',
+    );
 
     final submitted = await showDialog<bool>(
       context: context,
@@ -121,14 +124,14 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
         comment: commentController.text,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.reviewSaved)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.reviewSaved)));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.reviewError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.reviewError)));
     }
   }
 
@@ -153,9 +156,7 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
   int get _startingPrice {
     final field = widget.field;
     if (field.sport.isSessionBased && field.services.isNotEmpty) {
-      return field.services
-          .map((s) => s.price)
-          .reduce((a, b) => a < b ? a : b);
+      return field.services.map((s) => s.price).reduce((a, b) => a < b ? a : b);
     }
     return field.pricePerHour;
   }
@@ -164,19 +165,16 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
   Future<void> _confirmBooking() async {
     final slot = _selectedSlot;
     if (slot == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.pickTimeFirst)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.pickTimeFirst)));
       return;
     }
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => BookingCheckoutScreen(
-          field: widget.field,
-          slot: slot,
-          date: _date,
-        ),
+        builder: (_) =>
+            BookingCheckoutScreen(field: widget.field, slot: slot, date: _date),
       ),
     );
 
@@ -188,7 +186,6 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
     });
     _loadSlots();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -268,8 +265,8 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                         !field.isOpen
                             ? AppStrings.fieldClosedBadge
                             : field.sport.isSessionBased
-                                ? AppStrings.bookSession
-                                : AppStrings.bookNow,
+                            ? AppStrings.bookSession
+                            : AppStrings.bookNow,
                       ),
                     ),
                   ),
@@ -667,8 +664,7 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                       ),
                     )
                   else
-                    for (final review in _reviews!)
-                      _ReviewCard(review: review),
+                    for (final review in _reviews!) _ReviewCard(review: review),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -896,7 +892,7 @@ class _SlotChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = slot.isBooked;
-    final hour = '${slot.hour.toString().padLeft(2, '0')}:00';
+    final hour = TimeLabels.hour12(slot.hour);
 
     return Pressable(
       onTap: onTap,
@@ -908,15 +904,15 @@ class _SlotChip extends StatelessWidget {
           color: disabled
               ? AppColors.subtleFill
               : selected
-                  ? AppColors.primary
-                  : AppColors.surface,
+              ? AppColors.primary
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: disabled
                 ? AppColors.subtleFill
                 : selected
-                    ? AppColors.primary
-                    : AppColors.border,
+                ? AppColors.primary
+                : AppColors.border,
             width: 1.5,
           ),
           boxShadow: selected
@@ -931,15 +927,14 @@ class _SlotChip extends StatelessWidget {
         ),
         child: Text(
           hour,
-          textDirection: TextDirection.ltr,
           style: TextStyle(
             fontWeight: disabled ? FontWeight.w700 : FontWeight.w800,
             fontSize: 13,
             color: disabled
                 ? AppColors.muted
                 : selected
-                    ? AppColors.white
-                    : AppColors.dark,
+                ? AppColors.white
+                : AppColors.dark,
             decoration: disabled ? TextDecoration.lineThrough : null,
             decorationColor: AppColors.muted,
             decorationThickness: 2,
@@ -1026,10 +1021,8 @@ class _PromoBannerState extends State<_PromoBanner> {
             child: PageView.builder(
               itemCount: urls.length,
               onPageChanged: (i) => setState(() => _page = i),
-              itemBuilder: (_, i) => FieldPhoto(
-                sport: widget.field.sport,
-                url: urls[i],
-              ),
+              itemBuilder: (_, i) =>
+                  FieldPhoto(sport: widget.field.sport, url: urls[i]),
             ),
           ),
         ),
@@ -1066,10 +1059,7 @@ class _HighlightsRow extends StatelessWidget {
 
   void _openHighlight(BuildContext context, FieldHighlight highlight) {
     if (highlight.isVideo) {
-      launchUrl(
-        Uri.parse(highlight.url),
-        mode: LaunchMode.externalApplication,
-      );
+      launchUrl(Uri.parse(highlight.url), mode: LaunchMode.externalApplication);
       return;
     }
     // صورة: عرض مكبّر بسيط مع تقريب

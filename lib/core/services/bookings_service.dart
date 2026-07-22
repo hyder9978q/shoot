@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/booking.dart';
 import '../models/field.dart';
 import '../utils/date_labels.dart';
+import '../utils/input_sanitizer.dart';
 import 'app_mode.dart';
 import 'fields_service.dart';
 
@@ -202,6 +203,114 @@ class BookingsService {
     }
     revision.value++;
     return booking;
+  }
+
+  /// فحص الملكية: حجز يدوي بس لصاحب الملعب على ملعبه هو
+  /// (قواعد Firestore تفحصها بالسيرفر بعد — هذا خط دفاع بالتطبيق)
+  void _assertFieldOwner(Field field) {
+    final uid = _useMock ? 'mock-user' : FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || field.ownerId != uid) {
+      throw StateError('غير مخوّل: هذا الملعب مو تابع لحسابك');
+    }
+  }
+
+  /// حجز يدوي جاري؟ — منع الضغط المكرر
+  bool _creatingManual = false;
+
+  /// حجز يدوي من صاحب الملعب لزبون حجز خارج التطبيق (تلفون/واتساب/حضور).
+  ///
+  /// يحجز بنفس معرّف المستند fieldId_date_hour، فمنع الحجز المزدوج
+  /// يشتغل بالضبط بنفس آلية الحجز العادي وبالاتجاهين: لاعب حقيقي ما
+  /// يگدر ياخذ وقت محجوز يدوياً، وصاحب الملعب ما يگدر يسجّل حجز يدوي
+  /// فوق حجز لاعب حقيقي موجود. userId يبقى فارغ عمداً حتى ما يبين
+  /// الحجز اليدوي بـ"حجوزاتي" أي لاعب حقيقي (ولا حتى المالك نفسه لو
+  /// عنده حساب لاعب).
+  Future<Booking> createManualBooking(
+    Field field,
+    TimeSlot slot, {
+    required String date,
+    required String customerName,
+    String customerPhone = '',
+    String note = '',
+  }) async {
+    _assertFieldOwner(field);
+    final cleanName = InputSanitizer.clean(customerName, maxLength: 50);
+    if (cleanName.isEmpty) {
+      throw ArgumentError('اسم الزبون مطلوب');
+    }
+    if (_creatingManual) throw StateError('في عملية حجز جارية، لحظة');
+    _creatingManual = true;
+    try {
+      final booking = Booking(
+        id: '${field.id}_${date}_${slot.hour}',
+        userId: '',
+        fieldId: field.id,
+        fieldName: field.name,
+        area: field.area,
+        city: field.city,
+        sport: field.sport,
+        date: date,
+        hour: slot.hour,
+        deposit: 0,
+        userPhone: InputSanitizer.clean(customerPhone, maxLength: 20),
+        isManual: true,
+        customerName: cleanName,
+        note: InputSanitizer.clean(note, maxLength: 120),
+      );
+
+      if (_useMock) {
+        final taken = _mockBookings.any((b) => b.id == booking.id);
+        if (taken) throw const SlotTakenException();
+        _mockBookings.add(booking);
+        revision.value++;
+        return booking;
+      }
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('bookings')
+            .doc(booking.id)
+            .set({
+              ...booking.toMap(),
+              'createdAt': FieldValue.serverTimestamp(),
+            })
+            .timeout(const Duration(seconds: 15));
+      } on FirebaseException catch (e) {
+        // قواعد الحماية ترفض الكتابة فوق حجز موجود (حقيقي أو يدوي)
+        if (e.code == 'permission-denied' || e.code == 'already-exists') {
+          throw const SlotTakenException();
+        }
+        rethrow;
+      }
+      revision.value++;
+      return booking;
+    } finally {
+      _creatingManual = false;
+    }
+  }
+
+  /// إلغاء حجز يدوي — حذف مباشر بدون سجل إلغاء (هذا حجز سجّله المالك
+  /// نفسه، مو تقصير بحق لاعب حقيقي، فما يستحق تسجيل بمجموعة
+  /// cancellations أو التأثير بنسبة الالتزام). صاحب الملعب على ملعبه فقط.
+  Future<void> cancelManualBooking(Field field, Booking booking) async {
+    _assertFieldOwner(field);
+    if (!_cancelling.add(booking.id)) return;
+    try {
+      if (_useMock) {
+        _mockBookings.removeWhere((b) => b.id == booking.id);
+        revision.value++;
+        return;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('bookings')
+          .doc(booking.id)
+          .delete()
+          .timeout(const Duration(seconds: 15));
+      revision.value++;
+    } finally {
+      _cancelling.remove(booking.id);
+    }
   }
 
   /// عدد الحجوزات بالدفعة الوحدة

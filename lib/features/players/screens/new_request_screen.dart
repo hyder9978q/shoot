@@ -5,6 +5,7 @@ import '../../../core/models/field.dart';
 import '../../../core/services/player_requests_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/input_sanitizer.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/pressable.dart';
 
 /// نموذج نشر إعلان "ناقصنا لاعب"
@@ -39,9 +40,9 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
       return;
     }
     if (_hour == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.timeError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.timeError)));
       return;
     }
 
@@ -67,17 +68,17 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.requestPosted)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(AppStrings.requestPosted)));
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w800,
-        );
+    final labelStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -172,8 +173,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
             children: [
               for (var h = 16; h < 24; h++)
                 _ChoiceChip(
-                  label: '${h.toString().padLeft(2, '0')}:00',
-                  ltr: true,
+                  label: TimeLabels.hour12(h),
                   selected: _hour == h,
                   onTap: () => setState(() => _hour = h),
                 ),
@@ -292,13 +292,11 @@ class _ChoiceChip extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.icon,
-    this.ltr = false,
   });
 
   final String label;
   final IconData? icon;
   final bool selected;
-  final bool ltr;
   final VoidCallback onTap;
 
   @override
@@ -335,7 +333,6 @@ class _ChoiceChip extends StatelessWidget {
                   ],
                   Text(
                     label,
-                    textDirection: ltr ? TextDirection.ltr : null,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,

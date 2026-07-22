@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:shoot/core/utils/date_labels.dart';
+import 'package:shoot/core/utils/time_labels.dart';
 import 'package:shoot/features/bookings/screens/bookings_tab.dart';
 import 'package:shoot/features/home/widgets/play_now_section.dart';
 import 'package:shoot/features/players/screens/new_request_screen.dart';
@@ -9,8 +10,9 @@ import 'package:shoot/features/profile/screens/favorites_screen.dart';
 import 'package:shoot/main.dart';
 
 void main() {
-  testWidgets('رحلة كاملة: سبلاش → دخول → الملاعب → حجز ناجح',
-      (WidgetTester tester) async {
+  testWidgets('رحلة كاملة: سبلاش → دخول → الملاعب → حجز ناجح', (
+    WidgetTester tester,
+  ) async {
     // شاشة موبايل طويلة حتى كل العناصر تبين بدون تمرير
     tester.view.physicalSize = const Size(420, 1400);
     tester.view.devicePixelRatio = 1;
@@ -163,16 +165,16 @@ void main() {
     // اختيار الأيام: باچر كل الأوقات فاضية، واليوم بيها محجوزات
     expect(find.text('اليوم'), findsOneWidget);
     expect(find.text('باچر'), findsOneWidget);
-    expect(isBookedSlot('18:00'), isTrue);
+    expect(isBookedSlot(TimeLabels.hour12(18)), isTrue);
     await tester.tap(find.text('باچر'));
     await tester.pumpAndSettle();
-    expect(isBookedSlot('18:00'), isFalse);
+    expect(isBookedSlot(TimeLabels.hour12(18)), isFalse);
     await tester.tap(find.text('اليوم'));
     await tester.pumpAndSettle();
-    expect(isBookedSlot('18:00'), isTrue);
+    expect(isBookedSlot(TimeLabels.hour12(18)), isTrue);
 
     // اختيار وقت متاح والحجز
-    await tester.tap(find.text('17:00'));
+    await tester.tap(find.text(TimeLabels.hour12(17)));
     await tester.pump();
     await tester.tap(find.text('احجز هسه'));
     await tester.pumpAndSettle();
@@ -191,17 +193,22 @@ void main() {
     expect(find.text('هلا بيك، حيدر 👋'), findsOneWidget);
 
     // تبويب حجوزاتي: الحجز الجديد موجود
-    await tester.tap(find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('حجوزاتي'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('حجوزاتي'),
+      ),
+    );
     await tester.pumpAndSettle();
     Finder inBookingsTab(Finder f) =>
         find.descendant(of: find.byType(BookingsTab), matching: f);
     expect(inBookingsTab(find.text('ملعب النجوم')), findsOneWidget);
     expect(inBookingsTab(find.text('مؤكد')), findsOneWidget);
     // البطاقة الجديدة تعرض: اليوم · الساعة
-    expect(inBookingsTab(find.text('اليوم · 17:00')), findsOneWidget);
+    expect(
+      inBookingsTab(find.text('اليوم · ${TimeLabels.hour12(17)}')),
+      findsOneWidget,
+    );
     expect(inBookingsTab(find.text('القادمة')), findsOneWidget);
 
     // إلغاء الحجز → القائمة تفرغ
@@ -212,10 +219,12 @@ void main() {
     expect(inBookingsTab(find.text('بعدك ما عندك حجوزات')), findsOneWidget);
 
     // تبويب ناقصنا لاعب: الإعلانات التجريبية موجودة
-    await tester.tap(find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('ناقصنا لاعب'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('ناقصنا لاعب'),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('ناقصهم لاعب واحد'), findsOneWidget);
     expect(find.text('ناقصهم 2 لاعبين'), findsOneWidget);
@@ -229,8 +238,8 @@ void main() {
       inForm(find.byType(TextField)).first,
       'ملعب الأبطال — زيونة',
     );
-    await tester.ensureVisible(inForm(find.text('21:00')));
-    await tester.tap(inForm(find.text('21:00')));
+    await tester.ensureVisible(inForm(find.text(TimeLabels.hour12(21))));
+    await tester.tap(inForm(find.text(TimeLabels.hour12(21))));
     await tester.pump();
     await tester.ensureVisible(inForm(find.byIcon(Icons.add_rounded)));
     await tester.tap(inForm(find.byIcon(Icons.add_rounded)));
@@ -255,10 +264,12 @@ void main() {
     expect(find.text('إعلانك'), findsNothing);
 
     // تبويب حسابي: المستخدم التجريبي صاحب ملعب → اللوحة تظهرله
-    await tester.tap(find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('حسابي'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('حسابي'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('لوحة صاحب الملعب'));
     await tester.pumpAndSettle();

@@ -12,9 +12,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
 import '../../../core/utils/input_sanitizer.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
 import 'field_manage_screen.dart';
+import 'manual_booking_screen.dart';
 
 /// لوحة صاحب الملعب — أرباح اليوم والأسبوع + أوقات اليوم (شاشة ١١ بالتصميم)
 class OwnerDashboardScreen extends StatefulWidget {
@@ -31,10 +33,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   /// نسخة قابلة للتحديث من ملاعب المالك — تتغير لما يرفع/يحذف صور
   late final List<Field> _fields = List.of(widget.fields);
 
-  /// أوقات اليوم لكل ملعب — null = بعدها تتحمل
+  /// اليوم المختار لعرض/إدارة أوقاته بالشبكة تحت — افتراضياً اليوم.
+  /// منفصل عن بطاقتي "أرباح اليوم"/"حجوزات اليوم" اللي تبقى عن اليوم
+  /// الحقيقي دائماً بغض النظر عن التصفّح
+  String _selectedDate = BookingsService.todayDate();
+
+  /// أوقات اليوم الحقيقي لكل ملعب — لبطاقتي الأرباح والحجوزات فوق.
+  /// null = بعدها تتحمل
+  Map<String, List<TimeSlot>>? _todaySlotsByField;
+
+  /// أوقات اليوم المختار لكل ملعب — null = بعدها تتحمل
   Map<String, List<TimeSlot>>? _slotsByField;
 
-  /// حجوزات اليوم لكل ملعب — منها نعرف منو اللاعب بكل وقت محجوز
+  /// حجوزات اليوم المختار لكل ملعب — منها نعرف منو الزبون بكل وقت محجوز
   Map<String, List<Booking>> _bookingsByField = const {};
 
   /// عدد الحجوزات لكل يوم من آخر ٧ أيام (لمخطط الأرباح)
@@ -53,19 +64,40 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     super.dispose();
   }
 
+  /// تصفّح يوم ثاني بشبكة الأوقات (حتى ١٤ يوم جاي) — يفيد لمتابعة
+  /// حجوزات يدوية أو حقيقية بأيام غير اليوم
+  void _pickDate(String date) {
+    if (date == _selectedDate) return;
+    setState(() {
+      _selectedDate = date;
+      _slotsByField = null;
+    });
+    _load();
+  }
+
   Future<void> _load() async {
     final today = BookingsService.todayDate();
-    final result = <String, List<TimeSlot>>{};
-    final bookings = <String, List<Booking>>{};
+    final isToday = _selectedDate == today;
+
+    final todayResult = <String, List<TimeSlot>>{};
+    final selectedSlots = <String, List<TimeSlot>>{};
+    final selectedBookings = <String, List<Booking>>{};
     for (final field in _fields) {
       try {
-        result[field.id] =
-            await BookingsService.instance.slotsFor(field, today);
-        bookings[field.id] =
-            await BookingsService.instance.fieldBookings(field.id, today);
+        final todaySlots = await BookingsService.instance.slotsFor(
+          field,
+          today,
+        );
+        todayResult[field.id] = todaySlots;
+        selectedSlots[field.id] = isToday
+            ? todaySlots
+            : await BookingsService.instance.slotsFor(field, _selectedDate);
+        selectedBookings[field.id] = await BookingsService.instance
+            .fieldBookings(field.id, _selectedDate);
       } catch (_) {
-        result[field.id] = const [];
-        bookings[field.id] = const [];
+        todayResult[field.id] = const [];
+        selectedSlots[field.id] = const [];
+        selectedBookings[field.id] = const [];
       }
     }
 
@@ -87,10 +119,77 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     if (mounted) {
       setState(() {
-        _slotsByField = result;
-        _bookingsByField = bookings;
+        _todaySlotsByField = todayResult;
+        _slotsByField = selectedSlots;
+        _bookingsByField = selectedBookings;
         _weekBookings = week;
       });
+    }
+  }
+
+  /// فتح شاشة الحجز اليدوي — يحدّث اللوحة إذا انسجّل حجز جديد
+  Future<void> _openManualBooking() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ManualBookingScreen(fields: _fields)),
+    );
+    if (created == true) await _load();
+  }
+
+  /// الضغط على وقت محجوز: حجز يدوي يتحذف مباشرة، وحجز حقيقي يمر
+  /// بحوار الاعتذار والواتساب المعتاد
+  Future<void> _handleBookingTap(Field field, Booking booking) {
+    return booking.isManual
+        ? _cancelManualBooking(field, booking)
+        : _cancelBooking(field, booking);
+  }
+
+  /// حذف حجز يدوي — تأكيد بسيط بدون سبب ولا واتساب (هذا حجز سجّله
+  /// المالك نفسه، مو تقصير بحق لاعب حقيقي نعتذر له)
+  Future<void> _cancelManualBooking(Field field, Booking booking) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(AppStrings.deleteManualBookingTitle),
+        content: Text(
+          AppStrings.deleteManualBookingConfirm,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: AppColors.dark.withValues(alpha: 0.8),
+            height: 1.7,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(AppStrings.ownerCancelKeep),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              minimumSize: const Size(0, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(AppStrings.ownerCancelConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await BookingsService.instance.cancelManualBooking(field, booking);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.manualBookingDeleted)),
+      );
+      await _load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.manualBookingDeleteError)),
+      );
     }
   }
 
@@ -158,12 +257,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await CancellationsService.instance
-          .cancelByOwner(field, booking, reason: reason);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.ownerCancelDone)),
+      await CancellationsService.instance.cancelByOwner(
+        field,
+        booking,
+        reason: reason,
       );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.ownerCancelDone)));
       await _notifyPlayer(field, booking, reason);
       await _load();
     } catch (_) {
@@ -190,7 +292,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final message = AppStrings.ownerCancelWhatsapp(
       fieldName: field.name,
       dayLabel: DateLabels.label(booking.date),
-      time: '${booking.hour.toString().padLeft(2, '0')}:00',
+      time: TimeLabels.hour12(booking.hour),
       reason: InputSanitizer.clean(
         reason,
         maxLength: CancellationsService.reasonMaxLength,
@@ -205,7 +307,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   /// حجوزات اليوم عبر كل الملاعب
   int get _todayBooked {
-    final slots = _slotsByField;
+    final slots = _todaySlotsByField;
     if (slots == null) return 0;
     var count = 0;
     for (final list in slots.values) {
@@ -216,7 +318,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   /// أوقات فاضية اليوم
   int get _todayFree {
-    final slots = _slotsByField;
+    final slots = _todaySlotsByField;
     if (slots == null) return 0;
     var count = 0;
     for (final list in slots.values) {
@@ -232,9 +334,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final weekTotal = _weekBookings.fold(0, (a, b) => a + b) * deposit;
     final headerName = _fields.length == 1
         ? _fields.first.name
-        : AppStrings.ownerFieldsCount(
-            ArabicNum.count(_fields.length),
-          );
+        : AppStrings.ownerFieldsCount(ArabicNum.count(_fields.length));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -288,8 +388,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.white
-                                        .withValues(alpha: 0.6),
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.6,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -313,7 +414,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           // أرباح اليوم — بطاقة خضراء
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                15,
+                                16,
+                                15,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(18),
@@ -326,8 +432,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.white
-                                          .withValues(alpha: 0.85),
+                                      color: AppColors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 5),
@@ -344,8 +451,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.white
-                                          .withValues(alpha: 0.85),
+                                      color: AppColors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -356,7 +464,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           // حجوزات اليوم — بطاقة شفافة
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                15,
+                                16,
+                                15,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.white.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(18),
@@ -369,8 +482,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.white
-                                          .withValues(alpha: 0.6),
+                                      color: AppColors.white.withValues(
+                                        alpha: 0.6,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 5),
@@ -441,18 +555,76 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ],
               ),
             ),
-            // أوقات اليوم لكل ملعب
+            // أوقات اليوم لكل ملعب + زر الحجز اليدوي
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 24, 22, 12),
-              child: Text(
-                AppStrings.ownerTodayTitle,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.dark,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppStrings.ownerSlotsForDay(
+                        DateLabels.label(_selectedDate),
+                      ),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.dark,
+                      ),
+                    ),
+                  ),
+                  Pressable(
+                    onTap: _openManualBooking,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add_rounded,
+                            size: 16,
+                            color: AppColors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            AppStrings.manualBookingAction,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+            SizedBox(
+              height: 62,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                scrollDirection: Axis.horizontal,
+                itemCount: 14,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final date = DateLabels.dateFor(i);
+                  return _DayChip(
+                    date: date,
+                    selected: _selectedDate == date,
+                    onTap: () => _pickDate(date),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             if (slotsByField == null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 40),
@@ -471,10 +643,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     onFieldChanged: (updated) =>
                         setState(() => _fields[i] = updated),
                     onCancelBooking: (booking) =>
-                        _cancelBooking(field, booking),
+                        _handleBookingTap(field, booking),
                   ),
                 ),
-            // تلميح: سد الأوقات يصير بالحجز العادي
+            // تلميح: سد الأوقات يصير بالحجز اليدوي
             Container(
               margin: const EdgeInsets.fromLTRB(22, 4, 22, 28),
               padding: const EdgeInsets.all(12),
@@ -503,6 +675,63 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// شيب يوم لتصفّح أوقات صاحب الملعب — نفس ستايل شيب اليوم بالحجز اليدوي
+class _DayChip extends StatelessWidget {
+  const _DayChip({
+    required this.date,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String date;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              DateLabels.shortLabel(date),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+                color: selected ? AppColors.white : AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              ArabicNum.convert(DateLabels.dayMonth(date)),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                color: selected
+                    ? AppColors.white.withValues(alpha: 0.85)
+                    : AppColors.muted,
               ),
             ),
           ],
@@ -557,8 +786,9 @@ class _WeekChart extends StatelessWidget {
                     labels[i],
                     style: TextStyle(
                       fontSize: 10,
-                      fontWeight:
-                          i == values.length - 1 ? FontWeight.w800 : FontWeight.w700,
+                      fontWeight: i == values.length - 1
+                          ? FontWeight.w800
+                          : FontWeight.w700,
                       color: i == values.length - 1
                           ? AppColors.dark
                           : AppColors.muted,
@@ -602,10 +832,8 @@ class _OwnerFieldCard extends StatelessWidget {
   void _openManage(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => FieldManageScreen(
-          field: field,
-          onChanged: onFieldChanged,
-        ),
+        builder: (_) =>
+            FieldManageScreen(field: field, onChanged: onFieldChanged),
       ),
     );
   }
@@ -613,8 +841,9 @@ class _OwnerFieldCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bookedCount = slots.where((s) => s.isBooked).length;
-    final deposits = NumberFormat('#,###')
-        .format(bookedCount * FieldsService.depositAmount);
+    final deposits = NumberFormat(
+      '#,###',
+    ).format(bookedCount * FieldsService.depositAmount);
 
     return Container(
       decoration: BoxDecoration(
@@ -729,49 +958,55 @@ class _OwnerFieldCard extends StatelessWidget {
                     for (final slot in slots)
                       Builder(
                         builder: (context) {
-                          final booking =
-                              slot.isBooked ? _bookingAt(slot.hour) : null;
+                          final booking = slot.isBooked
+                              ? _bookingAt(slot.hour)
+                              : null;
+                          final isManual = booking?.isManual ?? false;
+                          final chipColor = !slot.isBooked
+                              ? AppColors.surface
+                              : isManual
+                              ? AppColors.accent
+                              : AppColors.primary;
+                          // النص فاتح فوق الأخضر، وغامق فوق الأصفر
+                          // (الحجز اليدوي) حتى يبقى واضح بالحالتين
+                          final textColor = !slot.isBooked
+                              ? AppColors.dark
+                              : isManual
+                              ? AppColors.dark
+                              : AppColors.white;
                           final chip = Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: slot.isBooked
-                                  ? AppColors.primary
-                                  : AppColors.surface,
+                              color: chipColor,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: slot.isBooked
-                                    ? AppColors.primary
-                                    : AppColors.border,
-                              ),
+                              border: Border.all(color: chipColor),
                             ),
                             child: Column(
                               children: [
                                 Text(
                                   slot.label,
-                                  textDirection: TextDirection.ltr,
                                   style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 11.5,
-                                    color: slot.isBooked
-                                        ? AppColors.white
-                                        : AppColors.dark,
+                                    color: textColor,
                                   ),
                                 ),
                                 Text(
                                   slot.isBooked
                                       ? (booking == null
-                                          ? AppStrings.bookedLabel
-                                          : AppStrings.ownerCancelSlotAction)
+                                            ? AppStrings.bookedLabel
+                                            : isManual
+                                            ? AppStrings.manualBookedBy
+                                            : AppStrings.ownerCancelSlotAction)
                                       : AppStrings.freeLabel,
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 10,
                                     color: slot.isBooked
-                                        ? AppColors.white
-                                            .withValues(alpha: 0.9)
+                                        ? textColor.withValues(alpha: 0.85)
                                         : AppColors.grey,
                                   ),
                                 ),

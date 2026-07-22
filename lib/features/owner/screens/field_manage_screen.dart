@@ -8,6 +8,7 @@ import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/input_sanitizer.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
 import 'field_photos_screen.dart';
@@ -31,29 +32,35 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
   bool _busy = false;
 
   // -------- المعلومات الأساسية --------
-  late final TextEditingController _nameController =
-      TextEditingController(text: _field.name);
-  late final TextEditingController _areaController =
-      TextEditingController(text: _field.area);
-  late final TextEditingController _cityController =
-      TextEditingController(text: _field.city);
-  late final TextEditingController _priceController =
-      TextEditingController(text: '${_field.pricePerHour}');
+  late final TextEditingController _nameController = TextEditingController(
+    text: _field.name,
+  );
+  late final TextEditingController _areaController = TextEditingController(
+    text: _field.area,
+  );
+  late final TextEditingController _cityController = TextEditingController(
+    text: _field.city,
+  );
+  late final TextEditingController _priceController = TextEditingController(
+    text: '${_field.pricePerHour}',
+  );
   late Sport _sport = _field.sport;
   late int _openHour = _field.openHour;
   late int _closeHour = _field.closeHour;
   late bool _isOpen = _field.isOpen;
 
   // -------- الوسائط --------
-  late final TextEditingController _mapsController =
-      TextEditingController(text: _field.mapsUrl);
+  late final TextEditingController _mapsController = TextEditingController(
+    text: _field.mapsUrl,
+  );
 
   // -------- طرق الدفع --------
   late bool _payDeposit = _field.paymentDeposit;
   late bool _payCash = _field.paymentCashOnArrival;
   late bool _zainCash = _field.zainCashEnabled;
-  late final TextEditingController _merchantController =
-      TextEditingController(text: _field.zainCashMerchantId);
+  late final TextEditingController _merchantController = TextEditingController(
+    text: _field.zainCashMerchantId,
+  );
 
   @override
   void dispose() {
@@ -67,9 +74,9 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _applyUpdate(Field updated) {
@@ -586,10 +593,8 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => FieldPhotosScreen(
-                  field: _field,
-                  onChanged: _applyUpdate,
-                ),
+                builder: (_) =>
+                    FieldPhotosScreen(field: _field, onChanged: _applyUpdate),
               ),
             );
           },
@@ -1113,8 +1118,7 @@ class _HourDropdown extends StatelessWidget {
                   DropdownMenuItem(
                     value: h,
                     child: Text(
-                      '${h.toString().padLeft(2, '0')}:00',
-                      textDirection: TextDirection.ltr,
+                      TimeLabels.hour12(h),
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,

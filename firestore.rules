@@ -75,9 +75,13 @@ service cloud.firestore {
     // - القراءة لأي مستخدم مسجّل (حتى يشوف الأوقات المحجوزة بالملعب)
     // - الإنشاء باسمه فقط، ومعرّف المستند fieldId_date_hour يمنع
     //   الحجز المزدوج: الكتابة فوق حجز شخص ثاني = update مرفوض
+    // - أو حجز يدوي من صاحب الملعب (userId فارغ) — نفس معرّف المستند
+    //   فنفس منع الحجز المزدوج يشتغل بالاتجاهين (يمنع لاعب يحجز وقت
+    //   محجوز يدوياً، ويمنع المالك يسجّل حجز يدوي فوق حجز لاعب حقيقي)
     // - التعديل والحذف لصاحب الحجز فقط
-    // - الحذف كذلك لصاحب الملعب (إلغاء اضطراري) — وهذا يوجب عليه
-    //   سجل إلغاء بمجموعة cancellations يشوفه اللاعب وتنحسب منه النسبة
+    // - الحذف كذلك لصاحب الملعب (إلغاء اضطراري أو حذف حجز يدوي) — وهذا
+    //   يوجب عليه سجل إلغاء بمجموعة cancellations للحجوزات الحقيقية بس
+    //   (التطبيق ما يسجّل إلغاء لحجز يدوي — مو تقصير بحق لاعب حقيقي)
     match /bookings/{bookingId} {
       function isFieldOwner(fieldId) {
         return request.auth != null
@@ -94,11 +98,32 @@ service cloud.firestore {
           && bookingId == d.fieldId + '_' + d.date + '_' + string(d.hour);
       }
 
+      // حجز عادي من لاعب حقيقي لنفسه
+      function validPlayerBooking() {
+        let d = request.resource.data;
+        return d.isManual != true
+          && d.userId == request.auth.uid
+          && d.userPhone == request.auth.token.phone_number;
+      }
+
+      // حجز يدوي من صاحب الملعب لزبون خارج التطبيق — userId فارغ عمداً
+      // (ما يرتبط بأي حساب لاعب حقيقي، حتى ما يبين بـ"حجوزاتي" أي حد)
+      function validManualBooking() {
+        let d = request.resource.data;
+        return d.isManual == true
+          && d.userId == ''
+          && isFieldOwner(d.fieldId)
+          && d.customerName is string
+          && d.customerName.size() > 0
+          && d.customerName.size() <= 50
+          && d.userPhone is string && d.userPhone.size() <= 20
+          && d.note is string && d.note.size() <= 120;
+      }
+
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.userPhone == request.auth.token.phone_number
-        && validBookingId();
+        && validBookingId()
+        && (validPlayerBooking() || validManualBooking());
       // بعد الإنشاء: يتحدث فقط ما عدا الحقول اللي تحدد الحجز وقيمته
       // المالية — هذي ثابتة للأبد حتى ما تنفتح ثغرة "نقل" حجز أو تلاعب
       // بالعربون بعد الحجز

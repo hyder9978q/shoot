@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/field.dart';
 import '../../../core/services/bookings_service.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/field_card.dart' show PriceText, RatingBadge;
 import '../../../core/widgets/pressable.dart';
@@ -60,9 +60,11 @@ class _PlayNowSectionState extends State<PlayNowSection> {
       if (field.sport.isSessionBased) continue;
       final taken = booked[field.id] ?? const <int>{};
       // أقرب ساعة فاضية من هسه لنهاية الدوام
-      for (var h = nowHour < field.openHour ? field.openHour : nowHour;
-          h < field.closeHour;
-          h++) {
+      for (
+        var h = nowHour < field.openHour ? field.openHour : nowHour;
+        h < field.closeHour;
+        h++
+      ) {
         if (!taken.contains(h)) {
           entries.add(_PlayNowEntry(field, h));
           break;
@@ -72,9 +74,7 @@ class _PlayNowSectionState extends State<PlayNowSection> {
     // الأقرب وقتاً أولاً، وعند التساوي الأعلى تقييماً
     entries.sort((a, b) {
       final byHour = a.freeHour.compareTo(b.freeHour);
-      return byHour != 0
-          ? byHour
-          : b.field.rating.compareTo(a.field.rating);
+      return byHour != 0 ? byHour : b.field.rating.compareTo(a.field.rating);
     });
 
     if (mounted) setState(() => _entries = entries.take(6).toList());
@@ -92,11 +92,7 @@ class _PlayNowSectionState extends State<PlayNowSection> {
           padding: const EdgeInsets.fromLTRB(22, 26, 22, 12),
           child: Row(
             children: [
-              Icon(
-                Icons.bolt_rounded,
-                size: 20,
-                color: AppColors.accent,
-              ),
+              Icon(Icons.bolt_rounded, size: 20, color: AppColors.accent),
               const SizedBox(width: 4),
               Text(
                 AppStrings.playTodayTitle,
@@ -142,7 +138,7 @@ class _PlayNowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final field = entry.field;
-    final hourLabel = '${entry.freeHour.toString().padLeft(2, '0')}:00';
+    final hourLabel = TimeLabels.hour12(entry.freeHour);
 
     return Pressable(
       child: SizedBox(
@@ -200,7 +196,6 @@ class _PlayNowCard extends StatelessWidget {
                                 ),
                                 Text(
                                   hourLabel,
-                                  textDirection: TextDirection.ltr,
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,

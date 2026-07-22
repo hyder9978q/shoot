@@ -384,7 +384,6 @@ class _RequestCard extends StatelessWidget {
                     ),
                     Text(
                       request.timeLabel,
-                      textDirection: TextDirection.ltr,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,

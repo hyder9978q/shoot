@@ -8,6 +8,7 @@ import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/pressable.dart';
 
 /// شاشة نجاح الحجز — تذكرة الحجز (شاشة ٠٨ بالتصميم)
@@ -43,9 +44,10 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
       duration: const Duration(milliseconds: 380),
     );
     // البداية من 0.85 مو من الصفر — العناصر الحقيقية ما تظهر من العدم
-    _scale = Tween<double>(begin: 0.85, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scale = Tween<double>(
+      begin: 0.85,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
     _controller.forward();
   }
@@ -65,7 +67,8 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
 
   void _sendWhatsapp() {
     final deposit = ArabicNum.money(FieldsService.depositAmount);
-    final message = 'تم الحجز ✅\n'
+    final message =
+        'تم الحجز ✅\n'
         '🏟️ ${widget.field.name} — ${widget.field.location}\n'
         '🕐 ${DateLabels.label(widget.date)} ${widget.slot.label}\n'
         '🎟️ رقم التذكرة: $_ticketCode\n'
@@ -80,7 +83,7 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
   @override
   Widget build(BuildContext context) {
     final field = widget.field;
-    final hour = '${widget.slot.hour.toString().padLeft(2, '0')}:00';
+    final hour = TimeLabels.hour12(widget.slot.hour);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -116,8 +119,9 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.4),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.4,
+                                    ),
                                     blurRadius: 30,
                                     offset: const Offset(0, 14),
                                   ),
@@ -188,8 +192,9 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                                       vertical: 5,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.white
-                                          .withValues(alpha: 0.2),
+                                      color: AppColors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -206,7 +211,12 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                18,
+                                20,
+                                18,
+                              ),
                               child: Column(
                                 children: [
                                   Row(
@@ -220,7 +230,8 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                                       Expanded(
                                         child: _TicketCell(
                                           label: AppStrings.ticketSportLabel,
-                                          value: '${field.sport.label} '
+                                          value:
+                                              '${field.sport.label} '
                                               '${field.sizeText}',
                                           alignEnd: true,
                                         ),
@@ -240,7 +251,6 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                                         child: _TicketCell(
                                           label: AppStrings.timeLabel,
                                           value: hour,
-                                          ltr: true,
                                           alignEnd: true,
                                         ),
                                       ),
@@ -328,8 +338,9 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                       ),
                       const SizedBox(height: 16),
                       Pressable(
-                        onTap: () => Navigator.of(context)
-                            .popUntil((route) => route.isFirst),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).popUntil((route) => route.isFirst),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Text(
@@ -360,19 +371,18 @@ class _TicketCell extends StatelessWidget {
     required this.label,
     required this.value,
     this.alignEnd = false,
-    this.ltr = false,
   });
 
   final String label;
   final String value;
   final bool alignEnd;
-  final bool ltr;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -385,7 +395,6 @@ class _TicketCell extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          textDirection: ltr ? TextDirection.ltr : null,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,

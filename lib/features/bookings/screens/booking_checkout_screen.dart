@@ -8,6 +8,7 @@ import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/pressable.dart';
 import 'booking_success_screen.dart';
 
@@ -79,18 +80,18 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
     } on SlotTakenException {
       if (!mounted) return;
       setState(() => _paying = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.slotTakenError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.slotTakenError)));
       // الوقت انحجز من غيرنا — نرجع للتفاصيل حتى يختار وقت ثاني
       Navigator.of(context).pop();
       return;
     } catch (_) {
       if (!mounted) return;
       setState(() => _paying = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.bookingError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.bookingError)));
       return;
     }
 
@@ -110,7 +111,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final field = widget.field;
-    final hour = '${widget.slot.hour.toString().padLeft(2, '0')}:00';
+    final hour = TimeLabels.hour12(widget.slot.hour);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -154,7 +155,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                         _noDeposit
                             ? AppStrings.confirmNoDeposit
                             : '${AppStrings.payDeposit} '
-                                '${ArabicNum.money(_deposit)} ${AppStrings.iqd}',
+                                  '${ArabicNum.money(_deposit)} ${AppStrings.iqd}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -248,8 +249,9 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.primaryDeep
-                                          .withValues(alpha: 0.85),
+                                      color: AppColors.primaryDeep.withValues(
+                                        alpha: 0.85,
+                                      ),
                                       height: 1.6,
                                     ),
                                   ),
@@ -293,7 +295,8 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                             label: field.sport.isSessionBased
                                 ? AppStrings.sessionPriceLabel
                                 : AppStrings.hourPriceLabel,
-                            value: '${ArabicNum.money(field.pricePerHour)} '
+                            value:
+                                '${ArabicNum.money(field.pricePerHour)} '
                                 '${AppStrings.iqd}',
                           ),
                           const SizedBox(height: 4),
@@ -340,79 +343,79 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
                     ),
                     // بدون عربون؟ ماكو دفع بالتطبيق — نخفي طرق الدفع
                     if (!_noDeposit) ...[
-                    const SizedBox(height: 22),
-                    Text(
-                      AppStrings.payMethodTitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.dark,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _PayRow(
-                      selected: _method == PayMethod.zainCash,
-                      onTap: () =>
-                          setState(() => _method = PayMethod.zainCash),
-                      title: AppStrings.zainCash,
-                      subtitle: AppStrings.zainCashHint,
-                      leading: Container(
-                        width: 40,
-                        height: 28,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: AppColors.inkFixed,
-                          borderRadius: BorderRadius.circular(7),
+                      const SizedBox(height: 22),
+                      Text(
+                        AppStrings.payMethodTitle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.dark,
                         ),
-                        child: const Text(
-                          'زين',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFFACC15),
+                      ),
+                      const SizedBox(height: 12),
+                      _PayRow(
+                        selected: _method == PayMethod.zainCash,
+                        onTap: () =>
+                            setState(() => _method = PayMethod.zainCash),
+                        title: AppStrings.zainCash,
+                        subtitle: AppStrings.zainCashHint,
+                        leading: Container(
+                          width: 40,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.inkFixed,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: const Text(
+                            'زين',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFACC15),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    _PayRow(
-                      selected: _method == PayMethod.card,
-                      onTap: () => setState(() => _method = PayMethod.card),
-                      title: AppStrings.cardPay,
-                      subtitle: AppStrings.cardPayHint,
-                      leading: Container(
-                        width: 40,
-                        height: 28,
-                        alignment: Alignment.center,
+                      const SizedBox(height: 10),
+                      _PayRow(
+                        selected: _method == PayMethod.card,
+                        onTap: () => setState(() => _method = PayMethod.card),
+                        title: AppStrings.cardPay,
+                        subtitle: AppStrings.cardPayHint,
+                        leading: Container(
+                          width: 40,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.subtleFill,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Icon(
+                            Icons.credit_card_rounded,
+                            size: 18,
+                            color: AppColors.grey,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // الدفع الإلكتروني بعده ما مفعّل — نكون صريحين
+                      Container(
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.subtleFill,
-                          borderRadius: BorderRadius.circular(7),
+                          color: AppColors.accentSoft,
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(
-                          Icons.credit_card_rounded,
-                          size: 18,
-                          color: AppColors.grey,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    // الدفع الإلكتروني بعده ما مفعّل — نكون صريحين
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentSoft,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        AppStrings.depositNote,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accentInk,
-                          height: 1.6,
+                        child: Text(
+                          AppStrings.depositNote,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accentInk,
+                            height: 1.6,
+                          ),
                         ),
                       ),
-                    ),
                     ],
                   ],
                 ),

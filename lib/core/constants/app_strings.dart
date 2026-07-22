@@ -230,12 +230,42 @@ class AppStrings {
   static const String todayBookings = 'حجوزات اليوم';
   static String freeSlotsCount(String count) => '$count وقت فاضي';
   static const String weekEarnings = 'أرباح الأسبوع';
-  static const String ownerTodayTitle = 'أوقات اليوم';
+  static String ownerSlotsForDay(String dayLabel) => 'أوقات $dayLabel';
   static const String bookingsCountLabel = 'حجز اليوم';
   static const String depositsLabel = 'عرابين اليوم';
   static const String freeLabel = 'فاضي';
   static const String ownerHint =
-      'الأوقات الخضراء محجوزة ومدفوع عربونها.\nتريد تسد وقت لصيانة أو حجز خارجي؟ احجزه بنفسك من صفحة الملعب.';
+      'الأوقات الخضراء محجوزة ومدفوع عربونها.\nتريد تسد وقت لصيانة أو زبون حجز عن طريق التلفون؟ استخدم "حجز يدوي".';
+
+  // الحجز اليدوي (لصاحب الملعب) — زبون حجز خارج التطبيق
+  static const String manualBookingAction = 'حجز يدوي';
+  static const String manualBookingTitle = 'حجز يدوي';
+  static const String manualBookingSubtitle =
+      'لزبون حجز عن طريق التلفون أو الواتساب أو حضر مباشرة';
+  static const String manualBookingFieldLabel = 'اختار الملعب';
+  static const String manualBookingDateLabel = 'اختار اليوم';
+  static const String manualBookingTimeLabel = 'اختار الوقت';
+  static const String manualBookingNoSlots = 'ماكو أوقات فاضية هذا اليوم';
+  static const String manualBookingCustomerNameLabel = 'اسم الزبون';
+  static const String manualBookingCustomerNameHint = 'مثال: أبو أحمد';
+  static const String manualBookingCustomerPhoneLabel = 'رقم الزبون (اختياري)';
+  static const String manualBookingCustomerPhoneHint = '07XX XXX XXXX';
+  static const String manualBookingNoteLabel = 'ملاحظة (اختياري)';
+  static const String manualBookingNoteHint = 'مثال: يدفع كاش بالملعب';
+  static const String manualBookingConfirm = 'سجّل الحجز';
+  static const String manualBookingPickTimeFirst = 'اختار وقت أول';
+  static const String manualBookingNameRequired = 'اسم الزبون مطلوب';
+  static const String manualBookingSuccess = 'انسجّل الحجز اليدوي ✅';
+  static const String manualBookingError =
+      'ما گدرنا نسجّل الحجز 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+  static const String manualBadge = 'يدوي';
+  static const String manualBookedBy = 'حجز يدوي';
+  static const String deleteManualBookingTitle = 'حذف الحجز اليدوي';
+  static const String deleteManualBookingConfirm =
+      'متأكد تريد تحذف هذا الحجز اليدوي؟ الوقت يرجع فاضي.';
+  static const String manualBookingDeleted = 'انحذف الحجز اليدوي ✅';
+  static const String manualBookingDeleteError =
+      'ما گدرنا نحذف الحجز، جرّب مرة ثانية';
 
   // إدارة صور الملعب (لصاحب الملعب)
   static const String fieldPhotosTitle = 'صور الملعب';

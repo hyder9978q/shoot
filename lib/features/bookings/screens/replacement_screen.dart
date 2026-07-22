@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
 import '../../../core/utils/geo.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
 import 'booking_checkout_screen.dart';
@@ -40,8 +41,9 @@ class _ReplacementScreenState extends State<ReplacementScreen> {
 
   Future<void> _load() async {
     try {
-      final list = await CancellationsService.instance
-          .findAlternatives(widget.cancellation);
+      final list = await CancellationsService.instance.findAlternatives(
+        widget.cancellation,
+      );
       if (mounted) setState(() => _alternatives = list);
     } catch (_) {
       if (mounted) setState(() => _alternatives = const []);
@@ -71,7 +73,7 @@ class _ReplacementScreenState extends State<ReplacementScreen> {
   Widget build(BuildContext context) {
     final cancellation = widget.cancellation;
     final list = _alternatives;
-    final time = '${cancellation.hour.toString().padLeft(2, '0')}:00';
+    final time = TimeLabels.hour12(cancellation.hour);
     final dayLabel = DateLabels.label(cancellation.date);
 
     return Scaffold(
@@ -80,11 +82,7 @@ class _ReplacementScreenState extends State<ReplacementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Header(
-              dayLabel: dayLabel,
-              time: time,
-              cancellation: cancellation,
-            ),
+            _Header(dayLabel: dayLabel, time: time, cancellation: cancellation),
             Expanded(
               child: list == null
                   ? ListView.separated(
@@ -94,17 +92,16 @@ class _ReplacementScreenState extends State<ReplacementScreen> {
                       itemBuilder: (_, _) => const _AlternativeSkeleton(),
                     )
                   : list.isEmpty
-                      ? const _EmptyAlternatives()
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
-                          itemCount: list.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 16),
-                          itemBuilder: (_, i) => _AlternativeCard(
-                            alternative: list[i],
-                            onBook: () => _book(list[i].field),
-                          ),
-                        ),
+                  ? const _EmptyAlternatives()
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
+                      itemCount: list.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 16),
+                      itemBuilder: (_, i) => _AlternativeCard(
+                        alternative: list[i],
+                        onBook: () => _book(list[i].field),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -460,13 +457,13 @@ class _AlternativeSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget block(double w, double h, [double r = 8]) => Container(
-          width: w,
-          height: h,
-          decoration: BoxDecoration(
-            color: AppColors.subtleFill,
-            borderRadius: BorderRadius.circular(r),
-          ),
-        );
+      width: w,
+      height: h,
+      decoration: BoxDecoration(
+        color: AppColors.subtleFill,
+        borderRadius: BorderRadius.circular(r),
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.all(14),

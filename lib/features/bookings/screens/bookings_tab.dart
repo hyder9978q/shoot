@@ -10,6 +10,7 @@ import 'replacement_screen.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/utils/date_labels.dart';
+import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_visual.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../fields/screens/field_details_screen.dart';
@@ -131,9 +132,9 @@ class _BookingsTabState extends State<BookingsTab> {
 
   /// حجوزات التبويب المختار
   List<Booking> _shown() => [
-        for (final b in _bookings ?? const <Booking>[])
-          if (_isUpcoming(b) == (_tab == 0)) b,
-      ];
+    for (final b in _bookings ?? const <Booking>[])
+      if (_isUpcoming(b) == (_tab == 0)) b,
+  ];
 
   Future<void> _cancel(Booking booking) async {
     final confirmed = await showDialog<bool>(
@@ -176,9 +177,9 @@ class _BookingsTabState extends State<BookingsTab> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.bookingError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.bookingError)));
     }
   }
 
@@ -270,23 +271,23 @@ class _BookingsTabState extends State<BookingsTab> {
                         itemBuilder: (_, _) => const _BookingSkeleton(),
                       )
                     : shown.isEmpty
-                        ? _EmptyState(error: _error, past: _tab == 1)
-                        : ListView.separated(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
-                            // عنصر إضافي بالنهاية = هيكل تحميل الدفعة الجاية
-                            itemCount: shown.length +
-                                (BookingsService.instance.hasMore ? 1 : 0),
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 16),
-                            itemBuilder: (_, i) => i >= shown.length
-                                ? const _BookingSkeleton()
-                                : _BookingCard(
-                                    booking: shown[i],
-                                    past: _tab == 1,
-                                    onCancel: () => _cancel(shown[i]),
-                                  ),
-                          ),
+                    ? _EmptyState(error: _error, past: _tab == 1)
+                    : ListView.separated(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
+                        // عنصر إضافي بالنهاية = هيكل تحميل الدفعة الجاية
+                        itemCount:
+                            shown.length +
+                            (BookingsService.instance.hasMore ? 1 : 0),
+                        separatorBuilder: (_, _) => const SizedBox(height: 16),
+                        itemBuilder: (_, i) => i >= shown.length
+                            ? const _BookingSkeleton()
+                            : _BookingCard(
+                                booking: shown[i],
+                                past: _tab == 1,
+                                onCancel: () => _cancel(shown[i]),
+                              ),
+                      ),
               ),
             ),
           ],
@@ -501,14 +502,14 @@ class _BookingCard extends StatelessWidget {
     }
     final found = field;
     if (found == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.fieldNotFound)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.fieldNotFound)));
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => FieldDetailsScreen(field: found)),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => FieldDetailsScreen(field: found)));
   }
 
   @override
@@ -589,7 +590,7 @@ class _BookingCard extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         '${DateLabels.label(booking.date)} · '
-                        '${booking.hour.toString().padLeft(2, '0')}:00',
+                        '${TimeLabels.hour12(booking.hour)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -706,23 +707,25 @@ class _EmptyState extends StatelessWidget {
           error
               ? AppStrings.bookingsLoadError
               : past
-                  ? AppStrings.noPastBookings
-                  : AppStrings.noBookingsTitle,
+              ? AppStrings.noPastBookings
+              : AppStrings.noBookingsTitle,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         if (!error) ...[
           const SizedBox(height: 8),
           Text(
-            past ? AppStrings.noPastBookingsMessage : AppStrings.noBookingsMessage,
+            past
+                ? AppStrings.noPastBookingsMessage
+                : AppStrings.noBookingsMessage,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.grey,
-                  fontWeight: FontWeight.w600,
-                  height: 1.7,
-                ),
+              color: AppColors.grey,
+              fontWeight: FontWeight.w600,
+              height: 1.7,
+            ),
           ),
           const SizedBox(height: 22),
           // زر إجراء: يودّي المستخدم لتبويب الرئيسية حتى يحجز

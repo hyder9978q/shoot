@@ -1,4 +1,5 @@
 import 'field.dart';
+import '../utils/time_labels.dart';
 
 /// إعلان "ناقصنا لاعب" — فريق يدوّر لاعبين يكملون الفريق
 class PlayerRequest {
@@ -54,20 +55,20 @@ class PlayerRequest {
   final String note;
 
   Map<String, dynamic> toMap() => {
-        'userId': userId,
-        'phone': phone,
-        'sport': sport.name,
-        'place': place,
-        'date': date,
-        'hour': hour,
-        'playersNeeded': playersNeeded,
-        'note': note,
-      };
+    'userId': userId,
+    'phone': phone,
+    'sport': sport.name,
+    'place': place,
+    'date': date,
+    'hour': hour,
+    'playersNeeded': playersNeeded,
+    'note': note,
+  };
 
   /// عنوان الإعلان: "ناقصهم لاعب واحد" / "ناقصهم 3 لاعبين"
   String get title =>
       playersNeeded == 1 ? 'ناقصهم لاعب واحد' : 'ناقصهم $playersNeeded لاعبين';
 
-  /// وقت اللعبة مثل 20:00
-  String get timeLabel => '${hour.toString().padLeft(2, '0')}:00';
+  /// وقت اللعبة مثل ٨:٠٠ مساءً
+  String get timeLabel => TimeLabels.hour12(hour);
 }

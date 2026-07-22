@@ -19,6 +19,9 @@ class Booking {
     this.userPhone = '',
     this.depositWaived = false,
     this.replacesCancellationId = '',
+    this.isManual = false,
+    this.customerName = '',
+    this.note = '',
   });
 
   factory Booking.fromMap(String id, Map<String, dynamic> data) {
@@ -38,8 +41,10 @@ class Booking {
       deposit: (data['deposit'] as num?)?.toInt() ?? 0,
       userPhone: (data['userPhone'] as String?) ?? '',
       depositWaived: (data['depositWaived'] as bool?) ?? false,
-      replacesCancellationId:
-          (data['replacesCancellationId'] as String?) ?? '',
+      replacesCancellationId: (data['replacesCancellationId'] as String?) ?? '',
+      isManual: (data['isManual'] as bool?) ?? false,
+      customerName: (data['customerName'] as String?) ?? '',
+      note: (data['note'] as String?) ?? '',
     );
   }
 
@@ -69,26 +74,40 @@ class Booking {
   /// معرّف سجل الإلغاء اللي هذا الحجز بديل عنه — فارغ = حجز عادي
   final String replacesCancellationId;
 
+  /// حجز يدوي من صاحب الملعب (زبون حجز خارج التطبيق) — userId فارغ دائماً
+  /// لهذا النوع، حتى ما يبين غلط بـ"حجوزاتي" أي لاعب حقيقي (وحتى صاحب
+  /// الملعب نفسه لو هو أيضاً لاعب بحساب ثاني)
+  final bool isManual;
+
+  /// اسم الزبون — للحجز اليدوي بس
+  final String customerName;
+
+  /// ملاحظة صاحب الملعب على الحجز اليدوي (اختيارية)
+  final String note;
+
   /// حجز مضمون؟ (بديل عن إلغاء مو ذنب اللاعب)
   bool get isGuaranteed => replacesCancellationId.isNotEmpty;
 
   Map<String, dynamic> toMap() => {
-        'userId': userId,
-        'fieldId': fieldId,
-        'fieldName': fieldName,
-        'area': area,
-        'city': city,
-        'sport': sport.name,
-        'date': date,
-        'hour': hour,
-        'deposit': deposit,
-        'userPhone': userPhone,
-        'depositWaived': depositWaived,
-        'replacesCancellationId': replacesCancellationId,
-      };
+    'userId': userId,
+    'fieldId': fieldId,
+    'fieldName': fieldName,
+    'area': area,
+    'city': city,
+    'sport': sport.name,
+    'date': date,
+    'hour': hour,
+    'deposit': deposit,
+    'userPhone': userPhone,
+    'depositWaived': depositWaived,
+    'replacesCancellationId': replacesCancellationId,
+    'isManual': isManual,
+    'customerName': customerName,
+    'note': note,
+  };
 
   String get location => '$area، $city';
 
-  /// نص الوقت مثل 17:00 - 18:00
+  /// نص الوقت مثل ٥:٠٠ مساءً - ٦:٠٠ مساءً
   String get timeLabel => TimeSlot(hour: hour, isBooked: false).label;
 }

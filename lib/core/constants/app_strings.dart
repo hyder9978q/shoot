@@ -360,7 +360,6 @@ class AppStrings {
   static const String merchantIdError = 'فعّلت زين كاش؟ دخّل معرّف التاجر';
   static const String onePaymentRequired =
       'لازم تبقى طريقة دفع وحدة مفعّلة على الأقل';
-  static const String paymentsSaved = 'انحفظت طرق الدفع ✅';
 
   // ترتيب الصور (لصاحب الملعب)
   static const String reorderPhotosHint =
@@ -504,6 +503,7 @@ class AppStrings {
   static const String loading = 'لحظة...';
   static const String retry = 'جرّب مرة ثانية';
   static const String comingSoon = 'قريباً إن شاء الله';
+  static const String pressBackAgainToExit = 'دزّ رجوع مرة ثانية للخروج من شوت';
 
   // ملفي وإحصائياتي
   static const String myProfileItem = 'ملفي وإحصائياتي';

@@ -122,9 +122,11 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
     }
   }
 
-  // ---------- المعلومات الأساسية ----------
+  // ---------- المعلومات الأساسية + طرق الدفع (زر حفظ واحد ثابت) ----------
 
-  Future<void> _saveInfo() async {
+  /// يتحقق من كل حقول الصفحة (المعلومات الأساسية وطرق الدفع سوا) ويحفظهم
+  /// بعملية وحدة — هذا هو زر "احفظ التعديلات" الثابت أسفل الشاشة.
+  Future<void> _saveAll() async {
     if (_nameController.text.trim().isEmpty) {
       _snack(AppStrings.fieldNameError);
       return;
@@ -151,8 +153,16 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
       _snack(AppStrings.venueContactPhoneError);
       return;
     }
-    await _run(
-      () => FieldsService.instance.updateFieldInfo(
+    if (!_payDeposit && !_payCash) {
+      _snack(AppStrings.onePaymentRequired);
+      return;
+    }
+    if (_zainCash && _merchantController.text.trim().isEmpty) {
+      _snack(AppStrings.merchantIdError);
+      return;
+    }
+    await _run(() async {
+      final updated = await FieldsService.instance.updateFieldInfo(
         _field,
         name: _nameController.text,
         area: _areaController.text,
@@ -163,9 +173,15 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
         closeHour: _closeHour,
         isOpen: _isOpen,
         contactPhone: phone,
-      ),
-      successMessage: AppStrings.infoSaved,
-    );
+      );
+      return FieldsService.instance.updatePaymentMethods(
+        updated,
+        deposit: _payDeposit,
+        cashOnArrival: _payCash,
+        zainCashEnabled: _zainCash,
+        zainCashMerchantId: _merchantController.text,
+      );
+    }, successMessage: AppStrings.infoSaved);
   }
 
   // ---------- الوسائط ----------
@@ -389,29 +405,6 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
     );
   }
 
-  // ---------- طرق الدفع ----------
-
-  Future<void> _savePayments() async {
-    if (!_payDeposit && !_payCash) {
-      _snack(AppStrings.onePaymentRequired);
-      return;
-    }
-    if (_zainCash && _merchantController.text.trim().isEmpty) {
-      _snack(AppStrings.merchantIdError);
-      return;
-    }
-    await _run(
-      () => FieldsService.instance.updatePaymentMethods(
-        _field,
-        deposit: _payDeposit,
-        cashOnArrival: _payCash,
-        zainCashEnabled: _zainCash,
-        zainCashMerchantId: _merchantController.text,
-      ),
-      successMessage: AppStrings.paymentsSaved,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -423,9 +416,35 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
+      // زر الحفظ ثابت أسفل الشاشة دائماً — خارج المحتوى القابل للتمرير،
+      // حتى لو صار أي تجمّد بالتمرير بعد التعديل بحقل نصّي يبقى الزر
+      // متاحاً ومو مدفون بمحتوى ما نقدر نوصله.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 10, 22, 14),
+          child: SizedBox(
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _busy ? null : _saveAll,
+              child: _busy
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : const Text(AppStrings.saveInfoButton),
+            ),
+          ),
+        ),
+      ),
       body: AbsorbPointer(
         absorbing: _busy,
         child: ListView(
+          key: const PageStorageKey<String>('field_manage_scroll'),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
           children: [
             _buildInfoCard(),
@@ -645,15 +664,6 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 18),
-        SizedBox(
-          height: 50,
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _busy ? null : _saveInfo,
-            child: const Text(AppStrings.saveInfoButton),
-          ),
-        ),
       ],
     );
   }
@@ -729,10 +739,14 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
             const SizedBox(width: 10),
             SizedBox(
               height: 48,
+              width: 48,
               child: ElevatedButton(
                 onPressed: _busy ? null : _saveMapsUrl,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  // يلغي minimumSize الافتراضي بالثيم (عرض لانهائي مقصود
+                  // للأزرار الكاملة العرض) — هذا زر مربّع صغير جوة Row
+                  minimumSize: const Size(48, 48),
+                  padding: EdgeInsets.zero,
                 ),
                 child: const Icon(Icons.check_rounded, size: 22),
               ),
@@ -1010,15 +1024,6 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
                 ),
               ],
             ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        SizedBox(
-          height: 50,
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _busy ? null : _savePayments,
-            child: const Text(AppStrings.saveInfoButton),
           ),
         ),
       ],

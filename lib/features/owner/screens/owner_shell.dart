@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/field.dart';
@@ -37,6 +38,26 @@ class _OwnerShellState extends State<OwnerShell> {
   /// نفس حارس الجلسة المستخدم بحساب اللاعب — يطرد المستخدم لشاشة
   /// الدخول فوراً لو انتهت جلسة Firebase (خروج / حذف حساب)
   StreamSubscription<User?>? _authSub;
+
+  /// آخر وقت ضغط المستخدم زر الرجوع وهو بأحد التبويبات الرئيسية —
+  /// يمنع الخروج المفاجئ من التطبيق بضغطة وحدة
+  DateTime? _lastBackPressAt;
+
+  void _handleRootBackPress() {
+    final now = DateTime.now();
+    if (_lastBackPressAt != null &&
+        now.difference(_lastBackPressAt!) < const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
+    }
+    _lastBackPressAt = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(AppStrings.pressBackAgainToExit),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -75,9 +96,16 @@ class _OwnerShellState extends State<OwnerShell> {
     // نسمع متحكّم الوضع الليلي هنا أيضاً — IndexedStack يبقي كل
     // التبويبات مبنية بالذاكرة حتى وهي مخفية، فتبديل الثيم من أي
     // تبويب لازم يعيد بناءها هنا حتى تلتقط الألوان الجديدة فوراً.
-    return ValueListenableBuilder<bool>(
-      valueListenable: ThemeController.instance.isDark,
-      builder: (context, _, _) => _buildScaffold(context),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleRootBackPress();
+      },
+      child: ValueListenableBuilder<bool>(
+        valueListenable: ThemeController.instance.isDark,
+        builder: (context, _, _) => _buildScaffold(context),
+      ),
     );
   }
 

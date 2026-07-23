@@ -47,6 +47,26 @@ class _MainShellState extends State<MainShell> {
   /// وبنفس الوقت يمنع الواصل غير المسجّل من البقاء بأي شاشة داخلية.
   StreamSubscription<User?>? _authSub;
 
+  /// آخر وقت ضغط المستخدم زر الرجوع وهو بأحد التبويبات الرئيسية —
+  /// يمنع الخروج المفاجئ من التطبيق بضغطة وحدة
+  DateTime? _lastBackPressAt;
+
+  void _handleRootBackPress() {
+    final now = DateTime.now();
+    if (_lastBackPressAt != null &&
+        now.difference(_lastBackPressAt!) < const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
+    }
+    _lastBackPressAt = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(AppStrings.pressBackAgainToExit),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -79,9 +99,16 @@ class _MainShellState extends State<MainShell> {
     // "حسابي" وشاشة الإعدادات المفتوحة فوقه)، فتبديل الثيم من أي
     // مكان لازم يعيد بناءها هنا حتى تلتقط الألوان الجديدة فوراً —
     // بدل إعادة بناء التطبيق كامل من جذره وفقدان كومة التنقل.
-    return ValueListenableBuilder<bool>(
-      valueListenable: ThemeController.instance.isDark,
-      builder: (context, _, _) => _buildScaffold(context),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleRootBackPress();
+      },
+      child: ValueListenableBuilder<bool>(
+        valueListenable: ThemeController.instance.isDark,
+        builder: (context, _, _) => _buildScaffold(context),
+      ),
     );
   }
 

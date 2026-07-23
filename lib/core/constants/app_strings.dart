@@ -693,4 +693,44 @@ class AppStrings {
   static const String switchAccountCancelAction = 'لا، خليه';
   static const String switchAccountError =
       'ما گدرنا نبدّل نوع حسابك 😕 جرّب مرة ثانية';
+
+  // إعلانات صاحب المنشأة
+  static const String myAdsTitle = 'إعلاناتي';
+  static const String addAdAction = 'أضف إعلان';
+  static const String noAdsTitle = 'ما نشرت أي إعلان بعد';
+  static const String noAdsMessage =
+      'انشر عرض أو خصم أو خبر بطولة — يظهر للاعبين بالرئيسية وبصفحة منشأتك';
+  static const String adTitleLabel = 'عنوان الإعلان';
+  static const String adTitleHint = 'مثال: خصم ٢٠٪ نهاية الأسبوع';
+  static const String adTitleError = 'اكتب عنوان الإعلان';
+  static const String adBodyLabel = 'نص الإعلان';
+  static const String adBodyHint = 'فصّل تفاصيل العرض أو الخبر...';
+  static const String adBodyError = 'اكتب نص الإعلان';
+  static const String adTypeLabel = 'نوع الإعلان';
+  static const String adImageLabel = 'صورة الإعلان (اختياري)';
+  static const String adExpiryLabel = 'ينتهي بتاريخ';
+  static const String adVenueLabel = 'المنشأة';
+  static const String addAdTitle = 'إعلان جديد';
+  static const String editAdTitle = 'تعديل الإعلان';
+  static const String publishAdAction = 'انشر الإعلان';
+  static const String saveAdAction = 'احفظ التعديلات';
+  static const String adPublished = 'انتشر إعلانك ✅';
+  static const String adSaved = 'انحفظ التعديل ✅';
+  static const String adPublishError =
+      'ما گدرنا ننشر الإعلان 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+  static const String adExpiredBadge = 'منتهي';
+  static const String adPausedBadge = 'موقوف';
+  static const String pauseAdAction = 'وقّف الإعلان';
+  static const String resumeAdAction = 'فعّل الإعلان';
+  static const String adPaused = 'تم إيقاف الإعلان';
+  static const String adResumed = 'تم تفعيل الإعلان مرة ثانية';
+  static const String deleteAction = 'حذف';
+  static const String deleteAdTitle = 'حذف الإعلان';
+  static const String deleteAdConfirm = 'متأكد تريد تحذف هذا الإعلان نهائياً؟';
+  static const String adDeleted = 'انحذف الإعلان ✅';
+  static const String adActionError = 'ما گدرنا نكمّل العملية، جرّب مرة ثانية';
+
+  // عرض الإعلانات للاعبين
+  static const String adsSectionTitle = 'العروض والإعلانات';
+  static const String fieldAdsTitle = 'عروض وإعلانات المنشأة';
 }

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/models/ad.dart';
 import '../../../core/models/field.dart';
 import '../../../core/models/review.dart';
+import '../../../core/services/ads_service.dart';
 import '../../../core/services/bookings_service.dart';
 import '../../../core/services/reviews_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -40,18 +42,101 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
   /// تقييمات الملعب — null = بعدها تتحمل
   List<Review>? _reviews;
 
+  /// إعلانات المنشأة النشطة — null = بعدها تتحمل
+  List<Ad>? _ads;
+
   @override
   void initState() {
     super.initState();
     _loadSlots();
     _loadReviews();
+    _loadAds();
     ReviewsService.instance.revision.addListener(_loadReviews);
+    AdsService.instance.revision.addListener(_loadAds);
   }
 
   @override
   void dispose() {
     ReviewsService.instance.revision.removeListener(_loadReviews);
+    AdsService.instance.revision.removeListener(_loadAds);
     super.dispose();
+  }
+
+  Future<void> _loadAds() async {
+    final ads = await AdsService.instance.activeAdsForField(widget.field.id);
+    if (mounted) setState(() => _ads = ads);
+  }
+
+  /// نافذة تعرض تفاصيل الإعلان كاملة — الصفحة أصلاً صفحة نفس المنشأة
+  /// فما داعي نفتح شي جديد، بس نبين النص كامل
+  void _openAdDetails(Ad ad) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              if (ad.imageUrl.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: 160,
+                    width: double.infinity,
+                    child: FieldPhoto(sport: widget.field.sport, url: ad.imageUrl),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              Text(
+                ad.type.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                ad.title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.dark,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                ad.body,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey,
+                  height: 1.8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadReviews() async {
@@ -517,6 +602,22 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                   // نسبة الالتزام — تبين بس إذا عند الملعب تاريخ كافي
                   // (الشارة تحمل مسافتها بنفسها حتى ما تزيح شي وهي مخفية)
                   ReliabilityBadge(fieldId: field.id),
+                  // عروض وإعلانات المنشأة النشطة — تختفي كلياً لو ماكو
+                  if (_ads != null && _ads!.isNotEmpty) ...[
+                    const _SectionTitle(AppStrings.fieldAdsTitle),
+                    SizedBox(
+                      height: 96,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _ads!.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
+                        itemBuilder: (_, i) => _FieldAdCard(
+                          ad: _ads![i],
+                          onTap: () => _openAdDetails(_ads![i]),
+                        ),
+                      ),
+                    ),
+                  ],
                   // عن الملعب
                   if (field.description.isNotEmpty) ...[
                     const _SectionTitle(AppStrings.aboutFieldTitle),
@@ -1073,6 +1174,63 @@ class _ServiceRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// بطاقة إعلان مختصرة بصفحة المنشأة — تفتح تفاصيله الكاملة عند الضغط
+class _FieldAdCard extends StatelessWidget {
+  const _FieldAdCard({required this.ad, required this.onTap});
+
+  final Ad ad;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.primaryTint,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primaryLight),
+        ),
+        child: Row(
+          children: [
+            Icon(ad.type.icon, size: 22, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ad.type.label,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    ad.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

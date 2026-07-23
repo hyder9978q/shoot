@@ -14,13 +14,15 @@ import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../auth/screens/login_screen.dart';
+import 'owner_ads_screen.dart';
 import 'owner_bookings_screen.dart';
 import 'owner_dashboard_screen.dart';
 import 'owner_settings_screen.dart';
 import 'owner_venues_screen.dart';
 
 /// الهيكل الرئيسي لحساب صاحب المنشأة — حساب منفصل بالكامل عن حساب
-/// اللاعب، بأربع تبويبات: لوحة التحكم، الحجوزات، منشآتي، الإعدادات.
+/// اللاعب، بخمس تبويبات: لوحة التحكم، الحجوزات، منشآتي، إعلاناتي،
+/// والإعدادات.
 class OwnerShell extends StatefulWidget {
   const OwnerShell({super.key});
 
@@ -106,6 +108,7 @@ class _OwnerShellState extends State<OwnerShell> {
             ),
             OwnerBookingsScreen(fields: fields),
             OwnerVenuesScreen(fields: fields, onChanged: _loadFields),
+            OwnerAdsScreen(fields: fields),
             OwnerSettingsScreen(
               fields: fields,
               onFieldsChanged: _loadFields,
@@ -130,6 +133,11 @@ class _OwnerShellState extends State<OwnerShell> {
               icon: Icon(Icons.storefront_outlined),
               selectedIcon: Icon(Icons.storefront_rounded),
               label: AppStrings.ownerShellVenues,
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.campaign_outlined),
+              selectedIcon: Icon(Icons.campaign_rounded),
+              label: AppStrings.myAdsTitle,
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),

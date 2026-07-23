@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 /// خدمة رفع وحذف الصور على Supabase Storage عبر REST مباشرة
 /// (بدون حزمة supabase_flutter — نحتاج التخزين فقط، والمصادقة تبقى Firebase).
 ///
-/// الـ buckets الثلاثة عامة القراءة، بحد ٥ ميغا وأنواع صور فقط
+/// كل الـ buckets (field-photos, field-promos, field-highlights,
+/// player-photos, ad-images) عامة القراءة، بحد ٥ ميغا وأنواع صور فقط
 /// (مفروضة من السيرفر على مستوى الـ bucket نفسه).
 class SupabaseStorageService {
   SupabaseStorageService._();

@@ -10,6 +10,7 @@ import '../../../core/widgets/field_card.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../game/screens/game_screen.dart';
 import '../../map/screens/fields_map_screen.dart';
+import '../widgets/ads_section.dart';
 import '../widgets/play_now_section.dart';
 
 /// تبويب الرئيسية — رأس أخضر + بحث + بلاطات الرياضات + بانر + الملاعب
@@ -154,6 +155,8 @@ class _HomeTabState extends State<HomeTab>
               ),
               // العب اليوم — يختفي أثناء البحث والفلترة
               if (!_loading && _isBrowsing) const PlayNowSection(),
+              // العروض والإعلانات — يختفي كلياً لو ماكو إعلانات نشطة
+              if (!_loading && _isBrowsing) const AdsSection(),
               // عنوان قائمة الملاعب
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 26, 22, 12),

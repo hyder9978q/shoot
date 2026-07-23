@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart';
 class OwnerTabs {
   OwnerTabs._();
 
-  /// أرقام التبويبات: 0 لوحة التحكم، 1 الحجوزات، 2 منشآتي، 3 الإعدادات
+  /// أرقام التبويبات: 0 لوحة التحكم، 1 الحجوزات، 2 منشآتي، 3 إعلاناتي،
+  /// 4 الإعدادات
   static const int dashboard = 0;
   static const int bookings = 1;
   static const int venues = 2;
-  static const int settings = 3;
+  static const int ads = 3;
+  static const int settings = 4;
 
   /// التبويب الحالي — [OwnerShell] يسمعه ويعيد البناء
   static final ValueNotifier<int> current = ValueNotifier<int>(dashboard);

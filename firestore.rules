@@ -112,6 +112,51 @@ service cloud.firestore {
         && validOwnerValues();
     }
 
+    // إعلانات صاحب المنشأة (عروض/بطولات/أخبار/أوقات متاحة): أي شخص
+    // يقراها (التطبيق يفلتر النشيطة وغير المنتهية عند العرض)، وصاحب
+    // المنشأة فقط ينشر/يعدّل/يحذف إعلانات منشأته هو — فحص ملكية صارم
+    // بنفس نمط مجموعة fields.
+    match /ads/{adId} {
+      function isFieldOwnerOf(fieldId) {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/fields/$(fieldId))
+          && get(/databases/$(database)/documents/fields/$(fieldId))
+               .data.ownerId == request.auth.uid;
+      }
+
+      function validAd() {
+        let d = request.resource.data;
+        return d.title is string && d.title.size() > 0 && d.title.size() <= 60
+          && d.body is string && d.body.size() > 0 && d.body.size() <= 300
+          && d.type in ['promo', 'tournament', 'news', 'availability']
+          && d.expiresAt is string
+          && d.expiresAt.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          && d.imageUrl is string && d.imageUrl.size() <= 500
+              && (d.imageUrl == '' || d.imageUrl.matches('https://.*'))
+          && d.isActive is bool
+          && d.createdAtMs is int
+          && d.fieldName is string && d.fieldName.size() <= 50;
+      }
+
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && isFieldOwnerOf(request.resource.data.fieldId)
+        && validAd();
+      // fieldId/ownerId/fieldName ثابتة للأبد — التعديل بس على محتوى
+      // الإعلان نفسه، وما يگدر ينقله لمنشأة ثانية أو ينتحل ملكية غيره
+      allow update: if request.auth != null
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.fieldId == resource.data.fieldId
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['title', 'body', 'type', 'expiresAt', 'imageUrl',
+                       'isActive'])
+        && validAd();
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+    }
+
     // الحجوزات:
     // - القراءة لأي مستخدم مسجّل (حتى يشوف الأوقات المحجوزة بالملعب)
     // - الإنشاء باسمه فقط، ومعرّف المستند fieldId_date_hour يمنع

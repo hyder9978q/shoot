@@ -72,6 +72,14 @@
         { "fieldPath": "joinerId", "order": "ASCENDING" },
         { "fieldPath": "requestId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

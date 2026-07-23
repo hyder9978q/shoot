@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/field.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
@@ -44,6 +45,9 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
   late final TextEditingController _priceController = TextEditingController(
     text: '${_field.pricePerHour}',
   );
+  late final TextEditingController _phoneController = TextEditingController(
+    text: _localPhone(_field.contactPhone),
+  );
   late Sport _sport = _field.sport;
   late int _openHour = _field.openHour;
   late int _closeHour = _field.closeHour;
@@ -68,9 +72,16 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
     _areaController.dispose();
     _cityController.dispose();
     _priceController.dispose();
+    _phoneController.dispose();
     _mapsController.dispose();
     _merchantController.dispose();
     super.dispose();
+  }
+
+  /// رقم دولي (+9647701234567) → صيغة محلية للعرض بخانة الإدخال (07701234567)
+  static String _localPhone(String e164) {
+    if (!e164.startsWith('+964')) return e164;
+    return '0${e164.substring(4)}';
   }
 
   void _snack(String message) {
@@ -135,6 +146,11 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
       _snack(AppStrings.hoursError);
       return;
     }
+    final phone = _phoneController.text.trim();
+    if (phone.isNotEmpty && !AuthService.isValidIraqiPhone(phone)) {
+      _snack(AppStrings.venueContactPhoneError);
+      return;
+    }
     await _run(
       () => FieldsService.instance.updateFieldInfo(
         _field,
@@ -146,6 +162,7 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
         openHour: _openHour,
         closeHour: _closeHour,
         isOpen: _isOpen,
+        contactPhone: phone,
       ),
       successMessage: AppStrings.infoSaved,
     );
@@ -483,6 +500,66 @@ class _FieldManageScreenState extends State<FieldManageScreen> {
           maxLength: 7,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(counterText: ''),
+        ),
+        const SizedBox(height: 14),
+        if (_field.contactPhone.isEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: AppColors.accentSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 18,
+                  color: AppColors.accentInk,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    AppStrings.venueContactPhoneRequired,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accentInk,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        _FieldLabel(AppStrings.venueContactPhoneLabel),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          textDirection: TextDirection.ltr,
+          maxLength: 11,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            InputSanitizer.deny(),
+          ],
+          decoration: const InputDecoration(
+            counterText: '',
+            hintText: AppStrings.venueContactPhoneHint,
+            hintTextDirection: TextDirection.ltr,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          AppStrings.venueContactPhoneDesc,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.muted,
+            height: 1.6,
+          ),
         ),
         const SizedBox(height: 14),
         _FieldLabel(AppStrings.sportTypeLabel),

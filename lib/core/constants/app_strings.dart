@@ -608,4 +608,89 @@ class AppStrings {
 
 • هذي الشروط ممكن تتحدث مع تطور التطبيق، وأي تحديث مهم راح نخبرك بيه.
 ''';
+
+  // نوع الحساب (أول تسجيل)
+  static const String accountTypeTitle = 'وياك شنو؟';
+  static const String accountTypeSubtitle =
+      'اختار نوع حسابك حتى نجهّز إلك التطبيق المناسب';
+  static const String accountTypePlayerTitle = 'أني لاعب';
+  static const String accountTypePlayerDesc =
+      'أحجز ملاعب ومنشآت رياضية، ألعب مع أهل حيّي، وأتابع إحصائياتي';
+  static const String accountTypeOwnerTitle = 'أني صاحب منشأة رياضية';
+  static const String accountTypeOwnerDesc =
+      'أدير ملعبي أو صالتي أو مسبحي أو مركزي، وأستقبل حجوزات الزبائن';
+  static const String accountTypeError =
+      'ما گدرنا نحفظ اختيارك 😕 جرّب مرة ثانية';
+
+  // هيكل صاحب المنشأة (التبويبات السفلية)
+  static const String ownerShellDashboard = 'لوحة التحكم';
+  static const String ownerShellBookings = 'الحجوزات';
+  static const String ownerShellVenues = 'منشآتي';
+
+  // منشآتي (صاحب المنشأة)
+  static const String myVenuesTitle = 'منشآتي';
+  static const String addVenueAction = 'أضف منشأة';
+  static const String noVenuesTitle = 'ما عندك منشآت مسجّلة بعد';
+  static const String noVenuesMessage =
+      'أضف منشأتك الأولى — ملعب، صالة رياضية، مسبح، أو مركز علاج رياضي';
+
+  // إضافة منشأة جديدة
+  static const String addVenueTitle = 'أضف منشأة جديدة';
+  static const String addVenueSubtitle =
+      'عبّي بيانات منشأتك — تقدر تكمّل الصور وطرق الدفع بعدين من "إدارة المنشأة"';
+  static const String venueTypeLabel = 'نوع المنشأة';
+  static const String addVenueSubmit = 'أضف المنشأة';
+  static const String venueAdded = 'انضافت منشأتك ✅ كمّل بياناتها من إدارتها';
+  static const String venueAddError =
+      'ما گدرنا نضيف المنشأة 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+
+  // حجوزات صاحب المنشأة (تبويب الحجوزات)
+  static const String ownerBookingsTitle = 'الحجوزات';
+  static const String ownerBookingsUpcoming = 'القادمة';
+  static const String ownerBookingsPast = 'السابقة';
+  static const String ownerBookingsEmptyUpcoming =
+      'ماكو حجوزات قادمة حالياً';
+  static const String ownerBookingsEmptyPast = 'ماكو حجوزات سابقة بعد';
+  static const String ownerBookingsLoadError =
+      'ما گدرنا نجيب الحجوزات 😕 اسحب للأسفل للتحديث';
+
+  // إعدادات صاحب المنشأة
+  static const String ownerSettingsVenuesSection = 'منشآتي';
+  static const String ownerSettingsVenuesHint =
+      'بيانات كل منشأة، ساعات دوامها، طرق الدفع، والصور — من هذي القائمة';
+
+  // رقم تواصل المنشأة
+  static const String venueContactPhoneLabel = 'رقم تواصل المنشأة';
+  static const String venueContactPhoneHint = '07XX XXX XXXX';
+  static const String venueContactPhoneDesc =
+      'هذا الرقم يشوفه الزبائن ويتواصلون عليه — منفصل عن رقم حسابك الشخصي';
+  static const String venueContactPhoneError =
+      'رقم تواصل المنشأة لازم يبدي بـ07 ويكون 11 رقم';
+  static const String venueContactPhoneRequired =
+      'دخّل رقم تواصل منشأتك حتى يقدر الزبائن يتواصلون وياك';
+  static const String venueContactPhoneMissingHint =
+      'ما حددت رقم تواصل لهذي المنشأة بعد — الزبائن ما يگدرون يتواصلون وياك مباشرة. أضفه من "إدارة المنشأة".';
+  static const String personalPhoneHint =
+      'خاص — لتسجيل الدخول فقط، ما يظهر للزبائن';
+  static const String contactVenueTitle = 'تواصل مع المنشأة';
+  static const String contactVenueMessage =
+      'هلا، شفتكم بتطبيق شوت — عندي استفسار 🙋';
+
+  // تبديل نوع الحساب
+  static const String switchAccountSection = 'نوع الحساب';
+  static const String switchToOwnerLabel = 'صير صاحب منشأة';
+  static const String switchToOwnerHint =
+      'افتح حساب صاحب منشأة وأضف ملعبك أو مسبحك أو مركزك';
+  static const String switchToPlayerLabel = 'ارجع لاعب';
+  static const String switchToPlayerHint = 'ارجع لحسابك كلاعب عادي';
+  static const String switchToOwnerConfirmTitle = 'تصير صاحب منشأة؟';
+  static const String switchToOwnerConfirmBody =
+      'راح ينفتح إلك حساب صاحب منشأة كامل — لوحة تحكم، منشآتي، وإعدادات خاصة. حسابك كلاعب (حجوزاتك وتقييماتك) يبقى محفوظ وترجعله بأي وقت.';
+  static const String switchToPlayerConfirmTitle = 'ترجع لاعب؟';
+  static const String switchToPlayerConfirmBody =
+      'راح ترجع لحسابك كلاعب عادي. منشآتك تبقى محفوظة بالكامل وترجعلك أول ما تصير صاحب منشأة مرة ثانية.';
+  static const String switchAccountConfirmAction = 'إي، أكيد';
+  static const String switchAccountCancelAction = 'لا، خليه';
+  static const String switchAccountError =
+      'ما گدرنا نبدّل نوع حسابك 😕 جرّب مرة ثانية';
 }

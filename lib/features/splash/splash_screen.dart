@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/shoot_logo.dart';
 import '../auth/screens/login_screen.dart';
 import '../auth/screens/name_screen.dart';
+import '../owner/screens/owner_shell.dart';
 import '../shell/main_shell.dart';
 
 /// شاشة البداية — هوية غارقة بالأخضر مع دخول ناعم
@@ -65,11 +66,15 @@ class _SplashScreenState extends State<SplashScreen>
 
     Widget next = const LoginScreen();
     if (signedIn) {
-      // جلسة سارية: نحمّل الملف ونفوّته — إذا ما كمّل اسمه نسأله
+      // جلسة سارية: نحمّل الملف ونفوّته — إذا ما كمّل اسمه نسأله.
+      // بعدها: صاحب المنشأة (باختياره أو تلقائياً لو يملك منشآت) يروح
+      // لحسابه المنفصل الكامل، مو واجهة اللاعب.
       await UserService.instance.load();
       if (!mounted) return;
       next = UserService.instance.name.isEmpty
           ? const NameScreen()
+          : UserService.instance.isOwner
+          ? const OwnerShell()
           : const MainShell();
     }
 

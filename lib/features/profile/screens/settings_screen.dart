@@ -15,10 +15,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/input_sanitizer.dart';
+import '../../account_switch.dart';
 import '../../splash/splash_screen.dart';
 
 /// رقم واتساب الدعم — نفس رقم التجربة المستخدم بباقي بيانات التطبيق التجريبية
-const String _supportPhone = '+9647701234567';
+const String supportWhatsappPhone = '+9647701234567';
 
 /// شاشة الإعدادات — الحساب، المظهر، الإشعارات، وعن التطبيق والدعم
 class SettingsScreen extends StatefulWidget {
@@ -73,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _editName() async {
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => _EditNameDialog(initialName: UserService.instance.name),
+      builder: (_) => EditNameDialog(initialName: UserService.instance.name),
     );
     if (name == null || !mounted) return;
     await UserService.instance.saveName(name);
@@ -167,7 +168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _contactSupport() async {
-    final phone = _supportPhone.replaceAll('+', '');
+    final phone = supportWhatsappPhone.replaceAll('+', '');
     await launchUrl(
       Uri.parse(
         'https://wa.me/$phone?text=${Uri.encodeComponent(AppStrings.supportWhatsappMessage)}',
@@ -178,7 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openLegalText(String title, String body) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _LegalTextScreen(title: title, body: body)),
+      MaterialPageRoute(builder: (_) => LegalTextScreen(title: title, body: body)),
     );
   }
 
@@ -219,10 +220,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(22, 16, 22, 32),
         children: [
-          const _SectionHeader(AppStrings.settingsAccountSection),
-          _SettingsCard(
+          const SettingsSectionHeader(AppStrings.settingsAccountSection),
+          SettingsCard(
             children: [
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.person_outline_rounded,
                 label: AppStrings.settingsNameLabel,
                 value: UserService.instance.name.isEmpty
@@ -230,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : UserService.instance.name,
                 onTap: _editName,
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.location_on_outlined,
                 label: AppStrings.settingsCityLabel,
                 value: UserService.instance.city.isEmpty
@@ -238,13 +239,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : UserService.instance.city,
                 onTap: _pickCity,
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.camera_alt_outlined,
                 label: AppStrings.settingsPhotoLabel,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _AvatarThumb(
+                    SettingsAvatarThumb(
                       name: UserService.instance.name,
                       photoUrl: UserService.instance.photoUrl,
                     ),
@@ -258,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 onTap: _changePhoto,
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.call_outlined,
                 label: AppStrings.settingsPhoneLabel,
                 value: _phone,
@@ -268,10 +269,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 22),
-          const _SectionHeader(AppStrings.settingsAppearanceSection),
-          _SettingsCard(
+          const SettingsSectionHeader(AppStrings.settingsAppearanceSection),
+          SettingsCard(
             children: [
-              _SettingsRow(
+              SettingsRow(
                 icon: ThemeController.instance.isDark.value
                     ? Icons.dark_mode_rounded
                     : Icons.dark_mode_outlined,
@@ -287,10 +288,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 22),
-          const _SectionHeader(AppStrings.settingsNotificationsSection),
-          _SettingsCard(
+          const SettingsSectionHeader(AppStrings.settingsNotificationsSection),
+          SettingsCard(
             children: [
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.event_available_outlined,
                 label: AppStrings.notifyBookingConfirmLabel,
                 hint: AppStrings.notifyBookingConfirmHint,
@@ -305,7 +306,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                 ),
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.alarm_outlined,
                 label: AppStrings.notifyReminderLabel,
                 hint: AppStrings.notifyReminderHint,
@@ -320,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                 ),
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.group_add_outlined,
                 label: AppStrings.notifyPlayerRequestsLabel,
                 hint: AppStrings.notifyPlayerRequestsHint,
@@ -339,16 +340,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 22),
-          const _SectionHeader(AppStrings.settingsAboutSection),
-          _SettingsCard(
+          const SettingsSectionHeader(AppStrings.switchAccountSection),
+          SettingsCard(
             children: [
-              _SettingsRow(
+              SettingsRow(
+                icon: Icons.storefront_outlined,
+                label: AppStrings.switchToOwnerLabel,
+                hint: AppStrings.switchToOwnerHint,
+                last: true,
+                onTap: () => switchAccountType(context, toOwner: true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          const SettingsSectionHeader(AppStrings.settingsAboutSection),
+          SettingsCard(
+            children: [
+              SettingsRow(
                 icon: Icons.headset_mic_outlined,
                 label: AppStrings.contactSupportLabel,
                 hint: AppStrings.contactSupportHint,
                 onTap: _contactSupport,
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.privacy_tip_outlined,
                 label: AppStrings.privacyPolicyLabel,
                 onTap: () => _openLegalText(
@@ -356,7 +370,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   AppStrings.privacyPolicyBody,
                 ),
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.description_outlined,
                 label: AppStrings.termsOfUseLabel,
                 onTap: () => _openLegalText(
@@ -364,7 +378,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   AppStrings.termsOfUseBody,
                 ),
               ),
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.info_outline_rounded,
                 label: AppStrings.appVersionLabel,
                 value: ArabicNum.convert(AppStrings.appVersionNumber),
@@ -374,9 +388,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 22),
-          _SettingsCard(
+          SettingsCard(
             children: [
-              _SettingsRow(
+              SettingsRow(
                 icon: Icons.logout_rounded,
                 label: AppStrings.logout,
                 danger: true,
@@ -394,16 +408,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 /// حوار تعديل الاسم — StatefulWidget مستقل حتى يتحكّم controller بدورة
 /// حياته بنفسه (ينحذف تلقائياً بالوقت الصحيح، حتى لو الحوار بعده يتحرك
 /// بحركة الخروج وقت الإغلاق)
-class _EditNameDialog extends StatefulWidget {
-  const _EditNameDialog({required this.initialName});
+class EditNameDialog extends StatefulWidget {
+  const EditNameDialog({super.key, required this.initialName});
 
   final String initialName;
 
   @override
-  State<_EditNameDialog> createState() => _EditNameDialogState();
+  State<EditNameDialog> createState() => _EditNameDialogState();
 }
 
-class _EditNameDialogState extends State<_EditNameDialog> {
+class _EditNameDialogState extends State<EditNameDialog> {
   late final _controller = TextEditingController(text: widget.initialName);
   String? _error;
 
@@ -450,8 +464,8 @@ class _EditNameDialogState extends State<_EditNameDialog> {
 }
 
 /// عنوان قسم بسيط فوق كل بطاقة إعدادات
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.label);
+class SettingsSectionHeader extends StatelessWidget {
+  const SettingsSectionHeader(this.label, {super.key});
 
   final String label;
 
@@ -472,8 +486,8 @@ class _SectionHeader extends StatelessWidget {
 }
 
 /// بطاقة تجمع صفوف قسم إعدادات وحدة
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.children});
+class SettingsCard extends StatelessWidget {
+  const SettingsCard({super.key, required this.children});
 
   final List<Widget> children;
 
@@ -492,8 +506,9 @@ class _SettingsCard extends StatelessWidget {
 }
 
 /// صف بشاشة الإعدادات — أيقونة + عنوان (وتلميح اختياري) + قيمة/سهم/مفتاح
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
+class SettingsRow extends StatelessWidget {
+  const SettingsRow({
+    super.key,
     required this.icon,
     required this.label,
     this.hint,
@@ -611,8 +626,12 @@ class _SettingsRow extends StatelessWidget {
 }
 
 /// أفاتار صغير مصغّر — يبين بجانب صف "الصورة"
-class _AvatarThumb extends StatelessWidget {
-  const _AvatarThumb({required this.name, required this.photoUrl});
+class SettingsAvatarThumb extends StatelessWidget {
+  const SettingsAvatarThumb({
+    super.key,
+    required this.name,
+    required this.photoUrl,
+  });
 
   final String name;
   final String photoUrl;
@@ -657,8 +676,8 @@ class _AvatarThumb extends StatelessWidget {
 }
 
 /// شاشة نص ثابت — تُستخدم لعرض سياسة الخصوصية وشروط الاستخدام
-class _LegalTextScreen extends StatelessWidget {
-  const _LegalTextScreen({required this.title, required this.body});
+class LegalTextScreen extends StatelessWidget {
+  const LegalTextScreen({super.key, required this.title, required this.body});
 
   final String title;
   final String body;

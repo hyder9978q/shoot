@@ -59,9 +59,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('شنو نسميك؟ 😊'), findsOneWidget);
 
-    // ندخل الاسم → الرئيسية بتحية شخصية
+    // ندخل الاسم → شاشة اختيار نوع الحساب
     await tester.enterText(find.byType(TextField), 'حيدر');
     await tester.tap(find.text('يلا نبدي'));
+    await tester.pumpAndSettle();
+    expect(find.text('وياك شنو؟'), findsOneWidget);
+
+    // نختار "أني لاعب" → الرئيسية بتحية شخصية
+    await tester.tap(find.text('أني لاعب'));
     await tester.pumpAndSettle();
     expect(find.text('هلا بيك، حيدر 👋'), findsOneWidget);
     expect(find.text('ملعب النجوم'), findsOneWidget);
@@ -263,26 +268,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('إعلانك'), findsNothing);
 
-    // تبويب حسابي: المستخدم التجريبي صاحب ملعب → اللوحة تظهرله
+    // تبويب حسابي → المفضلة: ملعب النجوم موجود
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationBar),
         matching: find.text('حسابي'),
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('لوحة صاحب الملعب'));
-    await tester.pumpAndSettle();
-    expect(find.text('ملعب النجوم'), findsWidgets);
-    expect(find.text('أرباح اليوم'), findsOneWidget);
-    expect(find.text('حجوزات اليوم'), findsOneWidget);
-    expect(find.text('أرباح الأسبوع'), findsOneWidget);
-    // بالوضع التجريبي: الساعات 18 و21 محجوزة (نمط h%3==0)
-    expect(find.text('محجوز'), findsWidgets);
-    expect(find.text('فاضي'), findsWidgets);
-
-    // رجوع من اللوحة → المفضلة: ملعب النجوم موجود
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
     await tester.tap(find.text('المفضلة'));
     await tester.pumpAndSettle();

@@ -74,8 +74,13 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
         '🎟️ رقم التذكرة: $_ticketCode\n'
         '💵 العربون: $deposit ${AppStrings.iqd} (مدفوع) والباقي كاش بالملعب\n'
         '— عن طريق تطبيق شوت ⚽';
+    // رقم تواصل المنشأة العام إذا موجود — التأكيد يوصل مباشرة إلها
+    final contactPhone = widget.field.contactPhone;
+    final target = contactPhone.isEmpty
+        ? ''
+        : contactPhone.replaceAll('+', '');
     launchUrl(
-      Uri.parse('https://wa.me/?text=${Uri.encodeComponent(message)}'),
+      Uri.parse('https://wa.me/$target?text=${Uri.encodeComponent(message)}'),
       mode: LaunchMode.externalApplication,
     );
   }

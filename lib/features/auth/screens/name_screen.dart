@@ -6,7 +6,7 @@ import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../../core/widgets/shoot_logo.dart';
-import '../../shell/main_shell.dart';
+import 'account_type_screen.dart';
 
 /// شاشة الاسم — تظهر مرة وحدة بعد أول تسجيل دخول
 class NameScreen extends StatefulWidget {
@@ -46,7 +46,7 @@ class _NameScreenState extends State<NameScreen> {
     }
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainShell()),
+      MaterialPageRoute(builder: (_) => const AccountTypeScreen()),
       (route) => false,
     );
   }

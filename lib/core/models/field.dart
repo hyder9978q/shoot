@@ -133,6 +133,7 @@ class Field {
     this.placeId = '',
     this.photoName = '',
     this.phone = '',
+    this.contactPhone = '',
     this.isOpen = true,
     this.mapsUrl = '',
     this.promoImageUrls = const [],
@@ -175,6 +176,7 @@ class Field {
       placeId: (data['placeId'] as String?) ?? '',
       photoName: (data['photoName'] as String?) ?? '',
       phone: (data['phone'] as String?) ?? '',
+      contactPhone: (data['contactPhone'] as String?) ?? '',
       isOpen: (data['isOpen'] as bool?) ?? true,
       mapsUrl: (data['mapsUrl'] as String?) ?? '',
       promoImageUrls: [
@@ -245,8 +247,16 @@ class Field {
   /// لأن ترخيص Google ما يسمح بتخزين الصورة نفسها عدنا
   final String photoName;
 
-  /// رقم هاتف المكان (من خرائط Google) — للأماكن اللي بعدها ما مسجلة عدنا
+  /// رقم هاتف المكان (من خرائط Google) — للأماكن اللي بعدها ما مسجلة عدنا.
+  /// مصدره سحب بيانات خارجي، مو موثّق ولا يتحكم فيه صاحب المنشأة —
+  /// للتواصل الفعلي استخدم [contactPhone].
   final String phone;
+
+  /// رقم تواصل المنشأة العام — يحطه صاحب المنشأة بنفسه من إدارتها،
+  /// وهو الوحيد المعروض للاعبين ويُستخدم بواتساب التواصل والحجز.
+  /// منفصل تماماً عن رقم حساب صاحب المنشأة الشخصي (يبقى خاص وما يظهر
+  /// أبداً للاعبين). بصيغة دولية (+964...) — فارغ لين ما يحدده المالك.
+  final String contactPhone;
 
   /// حالة الملعب: مفتوح / مغلق مؤقتاً (يتحكم بيها المالك)
   final bool isOpen;
@@ -319,6 +329,7 @@ class Field {
     List<String>? imageUrls,
     bool? isOpen,
     String? mapsUrl,
+    String? contactPhone,
     List<String>? promoImageUrls,
     List<FieldHighlight>? highlights,
     bool? paymentDeposit,
@@ -350,6 +361,7 @@ class Field {
       placeId: placeId,
       photoName: photoName,
       phone: phone,
+      contactPhone: contactPhone ?? this.contactPhone,
       isOpen: isOpen ?? this.isOpen,
       mapsUrl: mapsUrl ?? this.mapsUrl,
       promoImageUrls: promoImageUrls ?? this.promoImageUrls,

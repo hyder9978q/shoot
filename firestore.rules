@@ -36,6 +36,13 @@ service cloud.firestore {
                 || (d.mapsUrl is string && d.mapsUrl.size() <= 500
                     && (d.mapsUrl == ''
                         || d.mapsUrl.matches('https://.*'))))
+          // رقم تواصل المنشأة العام — فاضي (بعده ما تحدد) أو رقم عراقي
+          // دولي صحيح (+964 وبعده ٩ أرقام تبدي بـ٧) — منفصل عن رقم
+          // حساب صاحب المنشأة الشخصي، وهذا وحده يظهر للاعبين
+          && (!keys.hasAny(['contactPhone'])
+                || (d.contactPhone is string
+                    && (d.contactPhone == ''
+                        || d.contactPhone.matches('\\+9647[0-9]{9}'))))
           // قوائم الصور/الهايلايتس: نوع وحد أقصى للطول — تفاصيل كل عنصر
           // (رابط https صالح) يتحقق منها التطبيق قبل الرفع؛ قواعد
           // Firestore ما تگدر تتحقق من كل عنصر بقائمة بدون تكرار (loop)
@@ -57,14 +64,48 @@ service cloud.firestore {
                 || (d.services is list && d.services.size() <= 20));
       }
 
+      // منشأة جديدة يسجّلها صاحبها بنفسه من التطبيق (تبويب "منشآتي") —
+      // لازم يملكها هو (ownerId يطابق حسابه)، وتبدي نشيطة وبدون تقييم
+      // مزوّر ولا وسائط ملفّقة (كلها فاضية عند الإنشاء).
+      function validNewField() {
+        let d = request.resource.data;
+        return d.ownerId == request.auth.uid
+          && d.name is string && d.name.size() > 0 && d.name.size() <= 50
+          && d.area is string && d.area.size() > 0 && d.area.size() <= 50
+          && d.city is string && d.city.size() > 0 && d.city.size() <= 30
+          && d.sport in ['football', 'padel', 'basketball', 'tennis',
+                         'volleyball', 'swimming', 'gym',
+                         'sportsCentre', 'therapy']
+          && d.pricePerHour is int && d.pricePerHour > 0
+          && d.pricePerHour <= 1000000
+          && d.openHour is int && d.openHour >= 0 && d.openHour <= 23
+          && d.closeHour is int && d.closeHour >= 1 && d.closeHour <= 24
+          && d.openHour < d.closeHour
+          && d.isOpen == true
+          && d.isActive == true
+          && d.rating == 0 && d.reviewsCount == 0
+          && d.imageUrls == [] && d.promoImageUrls == []
+          && d.highlights == [] && d.services == []
+          && d.paymentDeposit is bool && d.paymentCashOnArrival is bool
+          && (d.paymentDeposit || d.paymentCashOnArrival)
+          && d.zainCashEnabled is bool
+          && d.zainCashMerchantId is string
+          && d.zainCashMerchantId.size() <= 50
+          // رقم تواصل المنشأة مطلوب من الإنشاء — منشأة جديدة لازم يكون
+          // عندها رقم يتواصل عليه الزبائن من أول يوم
+          && d.contactPhone is string
+          && d.contactPhone.matches('\\+9647[0-9]{9}');
+      }
+
       allow read: if true;
-      allow create, delete: if false;
+      allow create: if request.auth != null && validNewField();
+      allow delete: if false;
       allow update: if request.auth != null
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
              'imageUrls', 'promoImageUrls', 'highlights', 'mapsUrl',
              'name', 'area', 'city', 'sport', 'pricePerHour',
-             'openHour', 'closeHour', 'isOpen',
+             'openHour', 'closeHour', 'isOpen', 'contactPhone',
              'paymentDeposit', 'paymentCashOnArrival',
              'zainCashEnabled', 'zainCashMerchantId', 'services'
            ])
@@ -181,17 +222,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ملف المستخدم (الاسم والمفضلة): صاحبه فقط يقرأ ويكتب.
+    // ملف المستخدم (الاسم والمفضلة ونوع الحساب): صاحبه فقط يقرأ ويكتب.
     // createdAt يتثبت أول مرة وما يتغيّر بعدها (نفس نمط مجموعة players)
     // حتى ما يگدر المستخدم يزوّر مدة عضويته المعروضة له.
     match /users/{userId} {
+      // نوع الحساب: لاعب أو صاحب منشأة فقط — إذا انكتب أصلاً
+      function validAccountType() {
+        let keys = request.resource.data.diff(resource.data).affectedKeys();
+        return !keys.hasAny(['accountType'])
+          || request.resource.data.accountType in ['player', 'owner'];
+      }
+
       allow read: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null
         && request.auth.uid == userId
         && (!request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['createdAt'])
-            || !('createdAt' in resource.data));
+            || !('createdAt' in resource.data))
+        && validAccountType();
       allow delete: if false;
     }
 

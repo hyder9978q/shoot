@@ -65,6 +65,22 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
     }
   }
 
+  /// اتصال على رقم تواصل المنشأة العام (مو رقم صاحبها الشخصي)
+  Future<void> _call(String contactPhone) async {
+    await launchUrl(Uri.parse('tel:$contactPhone'));
+  }
+
+  /// واتساب على رقم تواصل المنشأة العام
+  Future<void> _whatsapp(String contactPhone) async {
+    final phone = contactPhone.replaceAll('+', '');
+    await launchUrl(
+      Uri.parse(
+        'https://wa.me/$phone?text=${Uri.encodeComponent(AppStrings.contactVenueMessage)}',
+      ),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
   Future<void> _openRateDialog() async {
     final myReview = ReviewsService.instance.myReviewIn(_reviews ?? const []);
     var rating = myReview?.rating ?? 5;
@@ -526,6 +542,30 @@ class _FieldDetailsScreenState extends State<FieldDetailsScreen> {
                       ],
                     ),
                   ],
+                  // تواصل مع المنشأة — رقم تواصلها العام اللي حدده
+                  // صاحبها بنفسه (مو رقمه الشخصي)
+                  if (field.contactPhone.isNotEmpty) ...[
+                    const _SectionTitle(AppStrings.contactVenueTitle),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ContactButton(
+                            icon: Icons.call_rounded,
+                            label: AppStrings.callContact,
+                            onTap: () => _call(field.contactPhone),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ContactButton(
+                            icon: Icons.chat_bubble_rounded,
+                            label: AppStrings.whatsappContact,
+                            onTap: () => _whatsapp(field.contactPhone),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   // الخدمات وأسعارها (مراكز العلاج خصوصاً)
                   if (field.services.isNotEmpty) ...[
                     const _SectionTitle(AppStrings.servicesTitle),
@@ -733,6 +773,49 @@ class _FeatureBox extends StatelessWidget {
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// زر تواصل (اتصال/واتساب) مع المنشأة
+class _ContactButton extends StatelessWidget {
+  const _ContactButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primaryTint,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primaryLight),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primaryDark,
               ),
             ),
           ],

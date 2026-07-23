@@ -7,6 +7,7 @@ import '../models/field.dart';
 import '../utils/image_validation.dart';
 import '../utils/input_sanitizer.dart';
 import 'app_mode.dart';
+import 'auth_service.dart';
 import 'supabase_storage_service.dart';
 
 export '../utils/image_validation.dart' show InvalidImageException;
@@ -301,6 +302,133 @@ class FieldsService {
     return fields.where((f) => f.ownerId == userId).toList();
   }
 
+  /// تحقق وتنظيف رقم تواصل المنشأة — لازم يكون رقم عراقي صحيح
+  /// (07XXXXXXXXX)، ويرجع بصيغة دولية (+964...) جاهزة للحفظ والواتساب.
+  /// [mustProvide] يفرض عدم الترك فارغ (منشأة جديدة)، وإلا الفراغ مسموح
+  /// (تعديل منشأة موجودة بعدها ما حددت رقمها).
+  static String _cleanContactPhone(String phone, {required bool mustProvide}) {
+    final t = phone.trim();
+    if (t.isEmpty) {
+      if (mustProvide) {
+        throw ArgumentError('رقم تواصل المنشأة مطلوب');
+      }
+      return '';
+    }
+    if (!AuthService.isValidIraqiPhone(t)) {
+      throw ArgumentError(
+        'رقم تواصل المنشأة لازم يكون رقم عراقي صحيح (07XXXXXXXXX)',
+      );
+    }
+    return AuthService.toE164(t);
+  }
+
+  /// إنشاء منشأة جديدة يملكها المستخدم الحالي — يختار نوعها من [Sport]
+  /// (ملعب، صالة، مسبح، مركز علاج...). النصوص تنظّف بالـ sanitizer،
+  /// ورقم تواصل المنشأة مطلوب من البداية حتى يقدر الزبائن يتواصلون
+  /// وياها فوراً. تنضاف فوراً لقائمة منشآت المالك.
+  Future<Field> createField({
+    required String name,
+    required String area,
+    required String city,
+    required Sport sport,
+    required int pricePerHour,
+    required int openHour,
+    required int closeHour,
+    required String contactPhone,
+  }) async {
+    final uid = AppMode.isMock
+        ? 'mock-user'
+        : FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      throw StateError('لازم تسجّل دخولك حتى تضيف منشأة');
+    }
+    final cleanName = InputSanitizer.clean(name, maxLength: 50);
+    final cleanArea = InputSanitizer.clean(area, maxLength: 50);
+    final cleanCity = InputSanitizer.clean(city, maxLength: 30);
+    if (cleanName.isEmpty || cleanArea.isEmpty || cleanCity.isEmpty) {
+      throw ArgumentError('الاسم والمنطقة والمدينة مطلوبين');
+    }
+    if (pricePerHour <= 0 || pricePerHour > 1000000) {
+      throw ArgumentError('السعر لازم يكون بين 1 ومليون دينار');
+    }
+    if (openHour < 0 || closeHour > 24 || openHour >= closeHour) {
+      throw ArgumentError('ساعات الدوام غير منطقية');
+    }
+    final cleanContactPhone = _cleanContactPhone(
+      contactPhone,
+      mustProvide: true,
+    );
+
+    if (AppMode.isMock) {
+      final field = Field(
+        id: 'owner-${DateTime.now().microsecondsSinceEpoch}',
+        name: cleanName,
+        area: cleanArea,
+        city: cleanCity,
+        sport: sport,
+        pricePerHour: pricePerHour,
+        rating: 0,
+        reviewsCount: 0,
+        openHour: openHour,
+        closeHour: closeHour,
+        ownerId: uid,
+        contactPhone: cleanContactPhone,
+      );
+      final list = _cache ??= List.of(_mockFields);
+      list.add(field);
+      revision.value++;
+      return field;
+    }
+
+    final doc = FirebaseFirestore.instance.collection('fields').doc();
+    final field = Field(
+      id: doc.id,
+      name: cleanName,
+      area: cleanArea,
+      city: cleanCity,
+      sport: sport,
+      pricePerHour: pricePerHour,
+      rating: 0,
+      reviewsCount: 0,
+      openHour: openHour,
+      closeHour: closeHour,
+      ownerId: uid,
+      contactPhone: cleanContactPhone,
+    );
+    await doc
+        .set({
+          'name': cleanName,
+          'area': cleanArea,
+          'city': cleanCity,
+          'sport': sport.name,
+          'pricePerHour': pricePerHour,
+          'rating': 0,
+          'reviewsCount': 0,
+          'openHour': openHour,
+          'closeHour': closeHour,
+          'ownerId': uid,
+          'contactPhone': cleanContactPhone,
+          'isOpen': true,
+          'isActive': true,
+          'imageUrls': <String>[],
+          'amenities': <String>[],
+          'promoImageUrls': <String>[],
+          'highlights': <Map<String, String>>[],
+          'services': <Map<String, Object>>[],
+          'paymentDeposit': true,
+          'paymentCashOnArrival': true,
+          'zainCashEnabled': false,
+          'zainCashMerchantId': '',
+          'createdAt': FieldValue.serverTimestamp(),
+        })
+        .timeout(const Duration(seconds: 15));
+
+    final list = _cache ??= <Field>[];
+    list.add(field);
+    revision.value++;
+    return field;
+  }
+
   /// المدن المتوفرة (من الملاعب المحمّلة) — للفلترة
   List<String> get cities {
     final seen = <String>{};
@@ -486,6 +614,7 @@ class FieldsService {
     required int openHour,
     required int closeHour,
     required bool isOpen,
+    required String contactPhone,
   }) async {
     final cleanName = InputSanitizer.clean(name, maxLength: 50);
     final cleanArea = InputSanitizer.clean(area, maxLength: 50);
@@ -499,6 +628,12 @@ class FieldsService {
     if (openHour < 0 || closeHour > 24 || openHour >= closeHour) {
       throw ArgumentError('ساعات الدوام غير منطقية');
     }
+    // رقم تواصل المنشأة مو مفروض هنا (منشآت قبل هالميزة بعدها ما
+    // حددته) — بس إذا انكتب لازم يكون رقم عراقي صحيح
+    final cleanContactPhone = _cleanContactPhone(
+      contactPhone,
+      mustProvide: false,
+    );
     return _saveOwnerUpdate(
       field,
       {
@@ -510,6 +645,7 @@ class FieldsService {
         'openHour': openHour,
         'closeHour': closeHour,
         'isOpen': isOpen,
+        'contactPhone': cleanContactPhone,
       },
       field.copyWith(
         name: cleanName,
@@ -520,6 +656,7 @@ class FieldsService {
         openHour: openHour,
         closeHour: closeHour,
         isOpen: isOpen,
+        contactPhone: cleanContactPhone,
       ),
     );
   }

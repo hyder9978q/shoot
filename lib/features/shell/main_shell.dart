@@ -8,14 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_strings.dart';
-import '../../core/models/field.dart';
 import '../../core/navigation/app_tabs.dart';
 import '../../core/services/app_mode.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/local_store.dart';
 import '../../core/services/bookings_service.dart';
 import '../../core/services/reviews_service.dart';
-import '../../core/services/fields_service.dart';
 import '../../core/services/user_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
@@ -24,7 +22,6 @@ import '../../core/widgets/pressable.dart';
 import '../auth/screens/login_screen.dart';
 import '../bookings/screens/bookings_tab.dart';
 import '../home/screens/home_screen.dart';
-import '../owner/screens/owner_dashboard_screen.dart';
 import '../players/screens/players_tab.dart';
 import '../profile/screens/favorites_screen.dart';
 import '../profile/screens/leaderboard_screen.dart';
@@ -142,13 +139,9 @@ class _ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<_ProfileTab> {
-  /// ملاعب المستخدم إذا هو صاحب ملعب — تظهرله اللوحة
-  List<Field> _myFields = const [];
-
   @override
   void initState() {
     super.initState();
-    _loadMyFields();
     _loadCounts();
     // نستمع تحديثات الحجوزات والتقييمات حتى الأرقام تتحدث لحظياً بدل
     // ما تضل ثابتة إلى ما يعاد بناء التبويب (IndexedStack يحافظ عليه حي)
@@ -161,14 +154,6 @@ class _ProfileTabState extends State<_ProfileTab> {
     BookingsService.instance.revision.removeListener(_loadCounts);
     ReviewsService.instance.revision.removeListener(_loadCounts);
     super.dispose();
-  }
-
-  Future<void> _loadMyFields() async {
-    final userId = AppMode.isMock
-        ? 'mock-user'
-        : FirebaseAuth.instance.currentUser?.uid ?? '';
-    final fields = await FieldsService.instance.myFields(userId);
-    if (mounted) setState(() => _myFields = fields);
   }
 
   String get _phone {
@@ -343,22 +328,6 @@ class _ProfileTabState extends State<_ProfileTab> {
                   ),
                   child: Column(
                     children: [
-                      // لوحة صاحب الملعب — تظهر فقط إذا المستخدم يملك ملاعب
-                      if (_myFields.isNotEmpty)
-                        _ProfileItem(
-                          icon: Icons.bar_chart_rounded,
-                          label: AppStrings.ownerDashboard,
-                          accent: true,
-                          badge: AppStrings.newBadge,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    OwnerDashboardScreen(fields: _myFields),
-                              ),
-                            );
-                          },
-                        ),
                       _ProfileItem(
                         icon: Icons.emoji_events_rounded,
                         label: AppStrings.myProfileItem,
@@ -538,8 +507,6 @@ class _ProfileItem extends StatelessWidget {
     required this.label,
     this.onTap,
     this.trailing,
-    this.badge,
-    this.accent = false,
     this.danger = false,
     this.last = false,
   });
@@ -551,12 +518,6 @@ class _ProfileItem extends StatelessWidget {
   /// عنصر بمفتاح بدل السهم (الوضع الليلي)
   final Widget? trailing;
 
-  /// شارة صغيرة خضراء (جديد)
-  final String? badge;
-
-  /// أيقونة صفراء (لوحة صاحب الملعب)
-  final bool accent;
-
   /// أحمر (تسجيل الخروج)
   final bool danger;
 
@@ -565,16 +526,8 @@ class _ProfileItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color tileColor = danger
-        ? AppColors.errorSoft
-        : accent
-        ? AppColors.accentSoft
-        : AppColors.primaryTint;
-    final Color iconColor = danger
-        ? AppColors.error
-        : accent
-        ? AppColors.accentInk
-        : AppColors.primary;
+    final Color tileColor = danger ? AppColors.errorSoft : AppColors.primaryTint;
+    final Color iconColor = danger ? AppColors.error : AppColors.primary;
 
     return Material(
       color: AppColors.surface,
@@ -615,26 +568,7 @@ class _ProfileItem extends StatelessWidget {
                   ),
                 ),
               ),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.white,
-                    ),
-                  ),
-                )
-              else if (trailing != null)
+              if (trailing != null)
                 trailing!
               else if (!danger)
                 Icon(

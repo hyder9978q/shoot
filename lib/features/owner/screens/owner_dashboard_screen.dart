@@ -1,29 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/booking.dart';
 import '../../../core/models/field.dart';
 import '../../../core/services/bookings_service.dart';
-import '../../../core/services/cancellations_service.dart';
 import '../../../core/services/fields_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/arabic_num.dart';
 import '../../../core/utils/date_labels.dart';
-import '../../../core/utils/input_sanitizer.dart';
-import '../../../core/utils/time_labels.dart';
 import '../../../core/widgets/field_image.dart';
 import '../../../core/widgets/pressable.dart';
+import '../utils/owner_booking_actions.dart';
 import 'field_manage_screen.dart';
 import 'manual_booking_screen.dart';
 
 /// لوحة صاحب الملعب — أرباح اليوم والأسبوع + أوقات اليوم (شاشة ١١ بالتصميم)
 class OwnerDashboardScreen extends StatefulWidget {
-  const OwnerDashboardScreen({super.key, required this.fields});
+  const OwnerDashboardScreen({
+    super.key,
+    required this.fields,
+    this.showBackButton = true,
+  });
 
   /// ملاعب هذا المالك (محمّلة مسبقاً من تبويب حسابي)
   final List<Field> fields;
+
+  /// false لو الشاشة مضمّنة كتبويب جذري (بدون Navigator.pop معنوي) —
+  /// حالة تبويب "لوحة التحكم" بحساب صاحب المنشأة المنفصل
+  final bool showBackButton;
 
   @override
   State<OwnerDashboardScreen> createState() => _OwnerDashboardScreenState();
@@ -138,170 +143,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   /// الضغط على وقت محجوز: حجز يدوي يتحذف مباشرة، وحجز حقيقي يمر
   /// بحوار الاعتذار والواتساب المعتاد
   Future<void> _handleBookingTap(Field field, Booking booking) {
-    return booking.isManual
-        ? _cancelManualBooking(field, booking)
-        : _cancelBooking(field, booking);
-  }
-
-  /// حذف حجز يدوي — تأكيد بسيط بدون سبب ولا واتساب (هذا حجز سجّله
-  /// المالك نفسه، مو تقصير بحق لاعب حقيقي نعتذر له)
-  Future<void> _cancelManualBooking(Field field, Booking booking) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(AppStrings.deleteManualBookingTitle),
-        content: Text(
-          AppStrings.deleteManualBookingConfirm,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: AppColors.dark.withValues(alpha: 0.8),
-            height: 1.7,
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(AppStrings.ownerCancelKeep),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              minimumSize: const Size(0, 46),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(AppStrings.ownerCancelConfirm),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await BookingsService.instance.cancelManualBooking(field, booking);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.manualBookingDeleted)),
-      );
-      await _load();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.manualBookingDeleteError)),
-      );
-    }
-  }
-
-  /// إلغاء حجز لاعب — يسأل عن السبب، يسجّل الإلغاء، ويفتح واتساب للاعتذار
-  Future<void> _cancelBooking(Field field, Booking booking) async {
-    final reasonController = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(AppStrings.ownerCancelTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppStrings.ownerCancelBody,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppColors.dark.withValues(alpha: 0.8),
-                height: 1.7,
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: reasonController,
-              // ما نسمح بأي رمز خطير بسبب الإلغاء
-              inputFormatters: [InputSanitizer.deny()],
-              maxLength: CancellationsService.reasonMaxLength,
-              maxLines: 2,
-              minLines: 1,
-              decoration: InputDecoration(
-                hintText: AppStrings.ownerCancelReasonHint,
-                counterText: '',
-                filled: true,
-                fillColor: AppColors.subtleFill,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(AppStrings.ownerCancelKeep),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              minimumSize: const Size(0, 46),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(AppStrings.ownerCancelConfirm),
-          ),
-        ],
-      ),
-    );
-
-    final reason = reasonController.text;
-    reasonController.dispose();
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await CancellationsService.instance.cancelByOwner(
-        field,
-        booking,
-        reason: reason,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.ownerCancelDone)));
-      await _notifyPlayer(field, booking, reason);
-      await _load();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.ownerCancelError)),
-      );
-    }
-  }
-
-  /// اعتذار بالواتساب للاعب — بلهجة مهذّبة مع ذكر البديل والضمان
-  Future<void> _notifyPlayer(
-    Field field,
-    Booking booking,
-    String reason,
-  ) async {
-    if (booking.userPhone.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.ownerCancelNoPhone)),
-      );
-      return;
-    }
-    final message = AppStrings.ownerCancelWhatsapp(
-      fieldName: field.name,
-      dayLabel: DateLabels.label(booking.date),
-      time: TimeLabels.hour12(booking.hour),
-      reason: InputSanitizer.clean(
-        reason,
-        maxLength: CancellationsService.reasonMaxLength,
-      ),
-    );
-    final phone = booking.userPhone.replaceAll('+', '');
-    await launchUrl(
-      Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}'),
-      mode: LaunchMode.externalApplication,
+    return OwnerBookingActions.handle(
+      context,
+      field,
+      booking,
+      onDone: _load,
     );
   }
 
@@ -361,24 +207,28 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          Pressable(
-                            onTap: () => Navigator.of(context).pop(),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: AppColors.white.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back_ios_new,
-                                size: 18,
-                                color: AppColors.white,
+                          if (widget.showBackButton) ...[
+                            Pressable(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.white.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_ios_new,
+                                  size: 18,
+                                  color: AppColors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 14),
+                            const SizedBox(width: 14),
+                          ],
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

@@ -7,6 +7,7 @@ import '../theme/theme_controller.dart';
 import '../utils/image_validation.dart';
 import '../utils/input_sanitizer.dart';
 import 'app_mode.dart';
+import 'fields_service.dart';
 import 'local_store.dart';
 import 'supabase_storage_service.dart';
 
@@ -29,9 +30,20 @@ class UserService {
   String _name = '';
   String _city = '';
   String _photoUrl = '';
+  String _accountType = '';
   int? _joinedAtMs;
   final Set<String> _favorites = {};
   bool _loaded = false;
+
+  /// نوع حساب — 'player' أو 'owner'، فقط للقيمتين
+  static bool _isValidAccountType(String type) =>
+      type == 'player' || type == 'owner';
+
+  /// يفرض نوع حساب معيّن بوضع التجربة — للاختبارات فقط. بدونه، وضع
+  /// التجربة يبقى 'player' افتراضياً بغض النظر عن ملاعب mock-user
+  /// التجريبية (حتى ما تنكسر رحلة اللاعب الحالية بالاختبارات).
+  @visibleForTesting
+  static String? debugAccountType;
 
   bool get _useMock => AppMode.isMock;
 
@@ -59,6 +71,13 @@ class UserService {
   /// وقت إنشاء الحساب بالميلي ثانية — null لين ما يتحمّل الملف
   int? get joinedAtMs => _joinedAtMs;
 
+  /// نوع الحساب: 'player' أو 'owner' — فارغ لين ما يتحمّل الملف
+  String get accountType => _accountType;
+
+  /// صاحب منشأة؟ يفتح واجهة منفصلة كاملة (لوحة تحكم، منشآتي، إعدادات
+  /// خاصة) بدل واجهة اللاعب العادية
+  bool get isOwner => _accountType == 'owner';
+
   bool isFavorite(String fieldId) => _favorites.contains(fieldId);
 
   List<String> get favoriteIds => _favorites.toList();
@@ -75,6 +94,7 @@ class UserService {
       _name = await LocalStore.userName;
       // ماكو سيرفر بالتجربة — مدة العضوية تبدي من هسه
       _joinedAtMs = DateTime.now().millisecondsSinceEpoch;
+      _accountType = debugAccountType ?? 'player';
       _loaded = true;
       revision.value++;
       return;
@@ -90,6 +110,26 @@ class UserService {
         ..addAll(
           ((data?['favoriteFieldIds'] as List?) ?? const []).cast<String>(),
         );
+
+      final storedType = data?['accountType'] as String?;
+      if (storedType != null && _isValidAccountType(storedType)) {
+        _accountType = storedType;
+      } else {
+        // حساب ما اختار نوعه أبداً (سجّل قبل هالميزة، أو انقطع قبل ما
+        // يكمّل اختيار نوع حسابه): نفحص إذا يملك منشآت فعلاً ونعامله
+        // كـ owner تلقائياً — وإلا لاعب عادي. نثبّت النتيجة مرة وحدة.
+        final owns = (await FieldsService.instance.myFields(_uid)).isNotEmpty;
+        _accountType = owns ? 'owner' : 'player';
+        try {
+          await _doc
+              .set({
+                'accountType': _accountType,
+              }, SetOptions(merge: true))
+              .timeout(const Duration(seconds: 10));
+        } catch (_) {
+          // فشل الحفظ ما يكسر التحميل — يعاود المحاولة أول تحميل جاي
+        }
+      }
 
       final createdAt = data?['createdAt'];
       if (createdAt is Timestamp) {
@@ -152,6 +192,25 @@ class UserService {
     } finally {
       _savingName = false;
     }
+  }
+
+  /// حفظ نوع الحساب — يحدد لاعب أو صاحب منشأة، ويظل ثابت بعدها
+  /// (يتغيّر فقط من هذا النداء، عادة مرة وحدة عند اختيار نوع الحساب
+  /// أول تسجيل). بوضع التجربة: بالذاكرة فقط.
+  Future<void> saveAccountType(String type) async {
+    if (!_isValidAccountType(type)) {
+      throw ArgumentError('نوع حساب غير صالح');
+    }
+    _accountType = type;
+    revision.value++;
+    if (_useMock) return;
+
+    await _doc
+        .set({
+          'accountType': type,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true))
+        .timeout(const Duration(seconds: 15));
   }
 
   /// حفظ مدينة جاري؟ — ما نكتب مرتين بنفس الوقت
@@ -317,6 +376,7 @@ class UserService {
     _name = '';
     _city = '';
     _photoUrl = '';
+    _accountType = '';
     _joinedAtMs = null;
     _favorites.clear();
     _loaded = false;

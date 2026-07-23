@@ -436,6 +436,57 @@ class BookingsService {
     }
   }
 
+  /// أقصى عدد منشآت بنداء واحد (حد Firestore لـ whereIn) — كافي عملياً
+  static const int _ownerBookingsFieldLimit = 10;
+
+  /// كل حجوزات صاحب المنشأة عبر منشآته (القادمة أو السابقة) — لتبويب
+  /// "الحجوزات" بلوحة صاحب المنشأة. مرتّبة بالأقرب أول للقادمة،
+  /// والأحدث أول للسابقة.
+  Future<List<Booking>> ownerBookings(
+    List<String> fieldIds, {
+    bool upcoming = true,
+  }) async {
+    if (fieldIds.isEmpty) return const [];
+    final today = todayDate();
+    final ids = fieldIds.take(_ownerBookingsFieldLimit).toList();
+
+    List<Booking> list;
+    if (_useMock) {
+      list = [
+        for (final b in _mockBookings)
+          if (ids.contains(b.fieldId) &&
+              (upcoming
+                  ? b.date.compareTo(today) >= 0
+                  : b.date.compareTo(today) < 0))
+            b,
+      ];
+    } else {
+      try {
+        var query = FirebaseFirestore.instance
+            .collection('bookings')
+            .where('fieldId', whereIn: ids);
+        query = upcoming
+            ? query.where('date', isGreaterThanOrEqualTo: today)
+            : query.where('date', isLessThan: today);
+        final snapshot = await query.get().timeout(const Duration(seconds: 10));
+        list = [
+          for (final doc in snapshot.docs) Booking.fromMap(doc.id, doc.data()),
+        ];
+      } catch (_) {
+        list = const [];
+      }
+    }
+
+    list.sort((a, b) {
+      final byDate = a.date.compareTo(b.date);
+      final dateCompare = upcoming ? byDate : -byDate;
+      if (dateCompare != 0) return dateCompare;
+      final byHour = a.hour.compareTo(b.hour);
+      return upcoming ? byHour : -byHour;
+    });
+    return list;
+  }
+
   /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين.
   ///
   /// قبل الحذف نسجّل دليل دائم بمجموعة playerCancellations — منه تنحسب

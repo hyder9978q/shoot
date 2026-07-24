@@ -80,6 +80,14 @@
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "createdAtMs", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "venueSuggestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requesterIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

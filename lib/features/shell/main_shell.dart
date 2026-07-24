@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/constants/admin_config.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/navigation/app_tabs.dart';
 import '../../core/services/app_mode.dart';
@@ -19,6 +20,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/utils/arabic_num.dart';
 import '../../core/widgets/pressable.dart';
+import '../admin/screens/admin_venue_suggestions_screen.dart';
 import '../auth/screens/login_screen.dart';
 import '../bookings/screens/bookings_tab.dart';
 import '../home/screens/home_screen.dart';
@@ -29,6 +31,7 @@ import '../profile/screens/my_reviews_screen.dart';
 import '../profile/screens/player_profile_screen.dart';
 import '../profile/screens/settings_screen.dart';
 import '../splash/splash_screen.dart';
+import '../venues/screens/my_venue_suggestions_screen.dart';
 
 /// رقم واتساب الدعم — نفس رقم شاشة الإعدادات
 const String _supportPhone = '+9647701234567';
@@ -402,6 +405,32 @@ class _ProfileTabState extends State<_ProfileTab> {
                           );
                         },
                       ),
+                      _ProfileItem(
+                        icon: Icons.stadium_rounded,
+                        label: AppStrings.mySuggestionsItem,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MyVenueSuggestionsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      // لوحة إدارة اقتراحات الملاعب — تظهر فقط لحساب
+                      // المسؤول (قائمة adminUids بملف admin_config.dart)
+                      if (AdminConfig.isCurrentUserAdmin)
+                        _ProfileItem(
+                          icon: Icons.admin_panel_settings_rounded,
+                          label: AppStrings.adminSuggestionsItem,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminVenueSuggestionsScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       // مفتاح الوضع الليلي
                       _ProfileItem(
                         icon: ThemeController.instance.isDark.value

@@ -2,6 +2,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // حسابات المسؤولين (admin UIDs) — نفس القائمة المكتوبة بملف
+    // lib/core/constants/admin_config.dart بالتطبيق. تتحكم بمين يشوف
+    // ويدير لوحة اقتراحات الملاعب. لإضافة حساب جديد: ضيف الـ UID هنا
+    // وبنفس الوقت بملف admin_config.dart، وانشر القواعد من جديد.
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in [
+        'zbILiMg4wVVmVdKjM6Z4YXwTuW52' // +9647701234567
+      ];
+    }
+
     // الملاعب: أي شخص يكدر يقراها، والإضافة/الحذف فقط من لوحة التحكم.
     // صاحب الملعب يگدر يعدّل ملعبه هو فقط، وبس الحقول المسموحة أدناه —
     // ownerId والتقييم وبقية الحقول محمية (مو ضمن القائمة = التعديل مرفوض).
@@ -382,6 +392,61 @@ service cloud.firestore {
         && (!request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['createdAt'])
             || !('createdAt' in resource.data));
+      allow delete: if false;
+    }
+
+    // اقتراحات الملاعب — لاعب يبلغ عن ملعب/منشأة ما موجودة بالتطبيق.
+    // معرّف المستند مبني بالتطبيق من اسم الملعب + منطقته (تطابق تقريبي)،
+    // فلو أكثر من لاعب اقترح نفس الملعب يصير "تحديث" (زيادة عدّاد) بدل
+    // "إنشاء" مستند جديد — الحالتين مفصولتين هنا بوضوح.
+    match /venueSuggestions/{suggestionId} {
+      // اقتراح جديد بالكامل: كل الحقول، والحالة تبدي "قيد المراجعة"
+      // وطالب واحد بس (صاحب الاقتراح نفسه)
+      function validNewSuggestion() {
+        let d = request.resource.data;
+        return d.name is string && d.name.size() > 0 && d.name.size() <= 50
+          && d.area is string && d.area.size() > 0 && d.area.size() <= 50
+          && d.mapsUrl is string && d.mapsUrl.size() <= 500
+              && (d.mapsUrl == '' || d.mapsUrl.matches('https://.*'))
+          && d.phone is string
+              && (d.phone == '' || d.phone.matches('\\+9647[0-9]{9}'))
+          && d.note is string && d.note.size() <= 200
+          && d.status == 'pending'
+          && d.userId == request.auth.uid
+          && d.requestCount == 1
+          && d.requesterIds is list && d.requesterIds.size() == 1
+          && d.requesterIds[0] == request.auth.uid;
+      }
+
+      // لاعب اقترح ملعب مقترح گبل من لاعب ثاني: يزيد العدّاد بالضبط
+      // واحد ويضيف نفسه لقائمة الطالبين — ما يگدر يحسب نفسه مرتين ولا
+      // يلمس أي حقل ثاني (الاسم، المنطقة، الحالة...)
+      function playerDuplicateIncrement() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return request.auth != null
+          && after.diff(before).affectedKeys()
+               .hasOnly(['requestCount', 'requesterIds', 'updatedAt'])
+          && after.requestCount == before.requestCount + 1
+          && !(request.auth.uid in before.requesterIds)
+          && after.requesterIds == before.requesterIds.concat([request.auth.uid]);
+      }
+
+      // المسؤول يغيّر الحالة بس — ما يلمس أي حقل ثاني (منها العدّاد)
+      function adminStatusUpdate() {
+        return isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['pending', 'added', 'rejected'];
+      }
+
+      // القراءة: المسؤول يشوف الكل، واللاعب يشوف بس الاقتراحات اللي هو
+      // طالبها (سواء أنشأها أو زاد صوته إلها)
+      allow read: if isAdmin()
+        || (request.auth != null
+              && request.auth.uid in resource.data.requesterIds);
+      allow create: if request.auth != null && validNewSuggestion();
+      allow update: if adminStatusUpdate() || playerDuplicateIncrement();
       allow delete: if false;
     }
   }

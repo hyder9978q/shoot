@@ -1,3 +1,5 @@
+import '../utils/arabic_num.dart';
+
 /// نصوص التطبيق — لهجة عراقية بسيطة وواضحة
 /// كل النصوص بمكان واحد حتى يسهل تعديلها لاحقاً
 class AppStrings {
@@ -733,4 +735,53 @@ class AppStrings {
   // عرض الإعلانات للاعبين
   static const String adsSectionTitle = 'العروض والإعلانات';
   static const String fieldAdsTitle = 'عروض وإعلانات المنشأة';
+
+  // اقترح ملعب — اللاعب
+  static const String suggestVenueCta = 'ما لگيت ملعبك؟ اقترحه';
+  static const String suggestVenueTitle = 'اقترح ملعب';
+  static const String suggestVenueIntro =
+      'ملعبك المفضل مو مسجّل عدنا بعد؟ گلنا وياه ونحاول نضيفه بأقرب وقت';
+  static const String suggestAreaLabel = 'المدينة/المنطقة';
+  static const String suggestAreaHint = 'مثال: بغداد — المنصور';
+  static const String suggestAreaError = 'اكتب المدينة أو المنطقة';
+  static const String suggestMapsUrlLabel = 'رابط الموقع على الخرائط (اختياري)';
+  static const String suggestMapsUrlHint = 'https://maps.google.com/...';
+  static const String suggestMapsUrlError = 'رابط الخرائط لازم يبدي بـ https://';
+  static const String suggestPhoneLabel = 'رقم الملعب إن تعرفه (اختياري)';
+  static const String suggestNoteHint =
+      'أي تفصيل يساعدنا نلگيه — علامة مميزة، قرب مكان معروف...';
+  static const String suggestSubmitAction = 'ارسل الاقتراح';
+  static const String suggestThankYouNew =
+      'شكراً إلك! 🙏 وصلنا اقتراحك وراح نراجعه — تگدر تتابع حالته من "اقتراحاتي"';
+  static const String suggestThankYouDuplicate =
+      'شكراً! هذا الملعب مقترح گبل من لاعبين ثانين — زدنا صوتك إله 🙌';
+  static const String suggestVenueError =
+      'ما گدرنا نرسل اقتراحك 😕 تأكد من الإنترنت وجرّب مرة ثانية';
+
+  // اقتراحاتي — اللاعب
+  static const String mySuggestionsTitle = 'اقتراحاتي';
+  static const String mySuggestionsItem = 'اقتراحاتي';
+  static const String noSuggestionsTitle = 'ما اقترحت أي ملعب بعد';
+  static const String noSuggestionsMessage =
+      'ما لگيت ملعبك بالتطبيق؟ اقترحه ونحاول نضيفه لأقرب وقت';
+  static String suggestionRequestersLabel(int n) =>
+      n <= 1 ? 'طلبه لاعب وحد' : 'طلبه ${ArabicNum.count(n)} لاعبين';
+
+  // لوحة إدارة الاقتراحات — للمسؤول فقط
+  static const String adminSuggestionsItem = 'اقتراحات الملاعب';
+  static const String adminSuggestionsTitle = 'اقتراحات الملاعب';
+  static const String adminSuggestionsSubtitle =
+      'مرتّبة بعدد الطلبات — الأكثر طلباً أولاً';
+  static const String adminNoSuggestions = 'ماكو اقتراحات لحد هسه';
+  static const String adminStatusPending = 'قيد المراجعة';
+  static const String adminStatusAdded = 'انضاف';
+  static const String adminStatusRejected = 'مرفوض';
+  static const String adminStatusUpdated = 'انحدثت الحالة ✅';
+  static const String adminStatusUpdateError =
+      'ما گدرنا نحدّث الحالة 😕 جرّب مرة ثانية';
+  static const String adminOpenMaps = 'افتح بالخرائط';
+  static const String adminCallVenue = 'اتصل بالملعب';
+  static const String adminFirstSuggestedBy = 'أول من اقترحه';
+  static const String adminRequestCountUnit = 'طلب';
+  static const String adminChangeStatusAction = 'غيّر الحالة';
 }

@@ -10,6 +10,7 @@ import '../../../core/widgets/field_card.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../game/screens/game_screen.dart';
 import '../../map/screens/fields_map_screen.dart';
+import '../../venues/screens/suggest_venue_screen.dart';
 import '../widgets/ads_section.dart';
 import '../widgets/play_now_section.dart';
 
@@ -458,6 +459,39 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              // "ما لگيت ملعبك؟ اقترحه" — رابط دائم تحت البحث حتى اللاعب
+              // يعرف من البداية إنه يقدر يبلغ عن ملعب ناقص
+              Center(
+                child: Pressable(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SuggestVenueScreen(),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.add_location_alt_outlined,
+                        size: 15,
+                        color: AppColors.white.withValues(alpha: 0.9),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        AppStrings.suggestVenueCta,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.white.withValues(alpha: 0.9),
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -673,6 +707,33 @@ class _EmptyResults extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 22),
             ),
             child: const Text(AppStrings.clearFilters),
+          ),
+          const SizedBox(height: 14),
+          // ما لگى نتائج؟ نعرضله فرصة يقترح الملعب اللي يدوّر عليه
+          Pressable(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SuggestVenueScreen()),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.add_location_alt_outlined,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  AppStrings.suggestVenueCta,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

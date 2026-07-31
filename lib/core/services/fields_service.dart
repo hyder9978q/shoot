@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../constants/admin_config.dart';
 import '../models/field.dart';
 import '../utils/image_validation.dart';
 import '../utils/input_sanitizer.dart';
@@ -298,8 +299,65 @@ class FieldsService {
   /// تحتاج القائمة كاملة حتى ما يضيع ملعب المالك بدفعة ما تحمّلت.
   Future<List<Field>> myFields(String userId) async {
     if (userId.isEmpty) return const [];
-    final fields = await loadAllFields();
-    return fields.where((f) => f.ownerId == userId).toList();
+
+    if (AppMode.isMock) {
+      final fields = await loadAllFields();
+      return fields.where((f) => f.ownerId == userId).toList();
+    }
+
+    // استعلام مباشر بـ ownerId مو فلترة على القائمة العامة: القائمة
+    // العامة تجيب المنشآت المفعّلة بس، وصاحب المنشأة لازم يشوف منشأته
+    // المعلّقة (بانتظار المراجعة) بلوحته من أول لحظة.
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('fields')
+          .where('ownerId', isEqualTo: userId)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return [for (final doc in snapshot.docs) Field.fromMap(doc.id, doc.data())];
+    } catch (_) {
+      // بدون نت: نرجع اللي عدنا بالقائمة المحمّلة بدل شاشة مكسورة
+      final fields = await loadAllFields();
+      return fields.where((f) => f.ownerId == userId).toList();
+    }
+  }
+
+  // ---------- مراجعة المنشآت (المسؤول) ----------
+
+  /// المنشآت المعلّقة بانتظار المراجعة — للوحة المسؤول وحده.
+  /// القراءة مسموحة للكل بقواعد Firestore، بس التفعيل للمسؤول فقط.
+  Future<List<Field>> pendingFields() async {
+    if (AppMode.isMock) {
+      final fields = await loadAllFields();
+      return fields.where((f) => !f.isActive).toList();
+    }
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('fields')
+        .where('isActive', isEqualTo: false)
+        .get()
+        .timeout(const Duration(seconds: 10));
+    return [for (final doc in snapshot.docs) Field.fromMap(doc.id, doc.data())];
+  }
+
+  /// تفعيل/تعطيل منشأة — المسؤول وحده (قواعد Firestore تفحصها بالسيرفر).
+  /// التفعيل يخليها تبين بالبحث والخريطة وتقبل الحجز.
+  Future<Field> setFieldActive(Field field, bool active) async {
+    if (!AdminConfig.isCurrentUserAdmin) {
+      throw StateError('التفعيل للمسؤول فقط');
+    }
+    final updated = field.copyWith(isActive: active);
+
+    if (!AppMode.isMock) {
+      await FirebaseFirestore.instance
+          .collection('fields')
+          .doc(field.id)
+          .set({'isActive': active}, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 15));
+    }
+    _replaceInCache(updated);
+    revision.value++;
+    return updated;
   }
 
   /// تحقق وتنظيف رقم تواصل المنشأة — لازم يكون رقم عراقي صحيح
@@ -326,6 +384,10 @@ class FieldsService {
   /// (ملعب، صالة، مسبح، مركز علاج...). النصوص تنظّف بالـ sanitizer،
   /// ورقم تواصل المنشأة مطلوب من البداية حتى يقدر الزبائن يتواصلون
   /// وياها فوراً. تنضاف فوراً لقائمة منشآت المالك.
+  ///
+  /// تنولد **بانتظار المراجعة** (`isActive == false`): ما تبين
+  /// بالبحث ولا بالخريطة ولا تنحجز، لحد ما يفعّلها المسؤول من لوحته.
+  /// هذا يمنع أي شخص يسجّل منشآت وهمية تظهر للاعبين فوراً.
   Future<Field> createField({
     required String name,
     required String area,
@@ -373,6 +435,7 @@ class FieldsService {
         closeHour: closeHour,
         ownerId: uid,
         contactPhone: cleanContactPhone,
+        isActive: false,
       );
       final list = _cache ??= List.of(_mockFields);
       list.add(field);
@@ -394,6 +457,7 @@ class FieldsService {
       closeHour: closeHour,
       ownerId: uid,
       contactPhone: cleanContactPhone,
+      isActive: false,
     );
     await doc
         .set({
@@ -409,7 +473,8 @@ class FieldsService {
           'ownerId': uid,
           'contactPhone': cleanContactPhone,
           'isOpen': true,
-          'isActive': true,
+          // بانتظار مراجعة المسؤول — ما تظهر للاعبين قبل التفعيل
+          'isActive': false,
           'imageUrls': <String>[],
           'amenities': <String>[],
           'promoImageUrls': <String>[],
@@ -542,14 +607,6 @@ class FieldsService {
     return newUrls;
   }
 
-  /// حذف ملف من Supabase Storage برابطه — لو فشل (رابط قديم من Firebase
-  /// أو Unsplash مثلاً) ما نكسر العملية
-  Future<void> _deleteStorageFile(String url) async {
-    try {
-      await SupabaseStorageService.deleteByUrl(url);
-    } catch (_) {}
-  }
-
   /// يرفع صوراً جديدة للملعب على Supabase Storage ويحفظ روابطها بـ Firestore.
   /// يرجّع الملعب بنسخته المحدّثة (بكل الصور). يرمي استثناء عند الفشل.
   Future<Field> addFieldPhotos(Field field, List<XFile> files) async {
@@ -561,7 +618,8 @@ class FieldsService {
     }, field.copyWith(imageUrls: updatedUrls));
   }
 
-  /// يحذف صورة من الملعب — من Firestore ومن Storage.
+  /// يحذف صورة من الملعب — يشيل رابطها من Firestore فتختفي من كل
+  /// الشاشات (ملفها يبقى بتخزين Supabase — شوف [SupabaseStorageService]).
   /// يرجّع الملعب بنسخته المحدّثة. يرمي استثناء عند الفشل.
   Future<Field> removeFieldPhoto(Field field, String url) async {
     if (!canUploadPhotos) {
@@ -571,11 +629,9 @@ class FieldsService {
       for (final u in field.imageUrls)
         if (u != url) u,
     ];
-    final updated = await _saveOwnerUpdate(field, {
+    return _saveOwnerUpdate(field, {
       'imageUrls': updatedUrls,
     }, field.copyWith(imageUrls: updatedUrls));
-    await _deleteStorageFile(url);
-    return updated;
   }
 
   /// إعادة ترتيب صور الملعب (أول صورة = الغلاف).
@@ -688,11 +744,9 @@ class FieldsService {
       for (final u in field.promoImageUrls)
         if (u != url) u,
     ];
-    final updated = await _saveOwnerUpdate(field, {
+    return _saveOwnerUpdate(field, {
       'promoImageUrls': updatedUrls,
     }, field.copyWith(promoImageUrls: updatedUrls));
-    await _deleteStorageFile(url);
-    return updated;
   }
 
   /// رفع صور لقطات الملعب (هايلايتس)
@@ -723,17 +777,15 @@ class FieldsService {
     }, field.copyWith(highlights: updatedHighlights));
   }
 
-  /// حذف لقطة — صورة (تنحذف من Storage) أو رابط فيديو
+  /// حذف لقطة — صورة أو رابط فيديو (يشيل السجل من Firestore)
   Future<Field> removeHighlight(Field field, FieldHighlight highlight) async {
     final updatedHighlights = [
       for (final h in field.highlights)
         if (h.url != highlight.url) h,
     ];
-    final updated = await _saveOwnerUpdate(field, {
+    return _saveOwnerUpdate(field, {
       'highlights': [for (final h in updatedHighlights) h.toMap()],
     }, field.copyWith(highlights: updatedHighlights));
-    if (!highlight.isVideo) await _deleteStorageFile(highlight.url);
-    return updated;
   }
 
   // ---------- الخدمات (مراكز العلاج خصوصاً) ----------

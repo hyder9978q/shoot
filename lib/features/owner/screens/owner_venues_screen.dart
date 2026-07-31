@@ -221,7 +221,28 @@ class _VenueCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (!field.isOpen)
+                        // بانتظار المراجعة يسبق "مغلق مؤقتاً" — هذي
+                        // الحالة الأهم لصاحب المنشأة (منشأته ما تبين أصلاً)
+                        if (!field.isActive)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentSoft,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              AppStrings.venuePendingBadge,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.accentInk,
+                              ),
+                            ),
+                          )
+                        else if (!field.isOpen)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -276,6 +297,18 @@ class _VenueCard extends StatelessWidget {
                         color: AppColors.primaryDark,
                       ),
                     ),
+                    if (!field.isActive) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        AppStrings.venuePendingNote,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accentInk,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
                     if (field.contactPhone.isEmpty) ...[
                       const SizedBox(height: 4),
                       Row(

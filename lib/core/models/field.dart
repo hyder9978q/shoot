@@ -135,6 +135,7 @@ class Field {
     this.phone = '',
     this.contactPhone = '',
     this.isOpen = true,
+    this.isActive = true,
     this.mapsUrl = '',
     this.promoImageUrls = const [],
     this.highlights = const [],
@@ -178,6 +179,7 @@ class Field {
       phone: (data['phone'] as String?) ?? '',
       contactPhone: (data['contactPhone'] as String?) ?? '',
       isOpen: (data['isOpen'] as bool?) ?? true,
+      isActive: (data['isActive'] as bool?) ?? true,
       mapsUrl: (data['mapsUrl'] as String?) ?? '',
       promoImageUrls: [
         for (final u in (data['promoImageUrls'] as List?) ?? const [])
@@ -261,6 +263,11 @@ class Field {
   /// حالة الملعب: مفتوح / مغلق مؤقتاً (يتحكم بيها المالك)
   final bool isOpen;
 
+  /// منشورة للاعبين؟ المنشأة الجديدة تنولد `false` (بانتظار المراجعة)
+  /// وما تبين بالبحث ولا تنحجز، والمسؤول وحده يفعّلها من لوحته.
+  /// الافتراضي `true` للمنشآت القديمة اللي انسجّلت قبل المراجعة.
+  final bool isActive;
+
   /// رابط موقع الملعب على خرائط Google (يحطه المالك) — فارغ = نعتمد الإحداثيات
   final String mapsUrl;
 
@@ -328,6 +335,7 @@ class Field {
     int? closeHour,
     List<String>? imageUrls,
     bool? isOpen,
+    bool? isActive,
     String? mapsUrl,
     String? contactPhone,
     List<String>? promoImageUrls,
@@ -363,6 +371,7 @@ class Field {
       phone: phone,
       contactPhone: contactPhone ?? this.contactPhone,
       isOpen: isOpen ?? this.isOpen,
+      isActive: isActive ?? this.isActive,
       mapsUrl: mapsUrl ?? this.mapsUrl,
       promoImageUrls: promoImageUrls ?? this.promoImageUrls,
       highlights: highlights ?? this.highlights,

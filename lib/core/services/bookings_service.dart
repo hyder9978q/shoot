@@ -122,6 +122,42 @@ class BookingsService {
     return map;
   }
 
+  // ---------- بيانات التواصل الخاصة ----------
+  //
+  // المستند الرئيسي بمجموعة bookings مقروء لأي مستخدم مسجّل (منه تنعرف
+  // الأوقات المحجوزة بأي ملعب)، فما ينخزن بيه ولا رقم هاتف ولا اسم زبون.
+  // كل هذي البيانات تروح لمستند فرعي واحد: bookings/{id}/private/contact
+  // ما يقراه غير صاحب الحجز نفسه وصاحب المنشأة (مفروض بقواعد Firestore).
+
+  static DocumentReference<Map<String, dynamic>> _bookingRef(String id) =>
+      FirebaseFirestore.instance.collection('bookings').doc(id);
+
+  static DocumentReference<Map<String, dynamic>> _contactRef(String id) =>
+      _bookingRef(id).collection('private').doc('contact');
+
+  /// يجيب بيانات تواصل حجز واحد ويرجّع نسخته معبّاة بيها.
+  /// بأفضل جهد: بدون صلاحية أو بدون نت يرجع الحجز مثل ما هو (بلا رقم).
+  Future<Booking> withContact(Booking booking) async {
+    if (_useMock) return booking;
+    try {
+      final snapshot = await _contactRef(
+        booking.id,
+      ).get().timeout(const Duration(seconds: 10));
+      final data = snapshot.data();
+      if (data == null) return booking;
+      return booking.withContact(data);
+    } catch (_) {
+      return booking;
+    }
+  }
+
+  /// نفس [withContact] بس لقائمة حجوزات — تستخدمها شاشات صاحب المنشأة
+  /// اللي تعرض اسم زبون الحجز اليدوي.
+  Future<List<Booking>> hydrateContacts(List<Booking> bookings) async {
+    if (_useMock || bookings.isEmpty) return bookings;
+    return Future.wait([for (final b in bookings) withContact(b)]);
+  }
+
   /// عملية إنشاء جارية — أي نداء ثاني بنفس الوقت يرجع نفس النتيجة
   /// بدل ما يكتب مرتين على Firestore
   Future<Booking>? _pendingCreate;
@@ -189,11 +225,14 @@ class BookingsService {
     }
 
     try {
-      await FirebaseFirestore.instance
-          .collection('bookings')
-          .doc(booking.id)
-          .set({...booking.toMap(), 'createdAt': FieldValue.serverTimestamp()})
-          .timeout(const Duration(seconds: 15));
+      // الحجز وبيانات التواصل بدفعة وحدة: يا الاثنين ينكتبون يا ولا واحد
+      final batch = FirebaseFirestore.instance.batch()
+        ..set(_bookingRef(booking.id), {
+          ...booking.toMap(),
+          'createdAt': FieldValue.serverTimestamp(),
+        })
+        ..set(_contactRef(booking.id), booking.contactMap);
+      await batch.commit().timeout(const Duration(seconds: 15));
     } on FirebaseException catch (e) {
       // قواعد الحماية ترفض الكتابة فوق حجز شخص ثاني
       if (e.code == 'permission-denied' || e.code == 'already-exists') {
@@ -267,14 +306,13 @@ class BookingsService {
       }
 
       try {
-        await FirebaseFirestore.instance
-            .collection('bookings')
-            .doc(booking.id)
-            .set({
-              ...booking.toMap(),
-              'createdAt': FieldValue.serverTimestamp(),
-            })
-            .timeout(const Duration(seconds: 15));
+        final batch = FirebaseFirestore.instance.batch()
+          ..set(_bookingRef(booking.id), {
+            ...booking.toMap(),
+            'createdAt': FieldValue.serverTimestamp(),
+          })
+          ..set(_contactRef(booking.id), booking.contactMap);
+        await batch.commit().timeout(const Duration(seconds: 15));
       } on FirebaseException catch (e) {
         // قواعد الحماية ترفض الكتابة فوق حجز موجود (حقيقي أو يدوي)
         if (e.code == 'permission-denied' || e.code == 'already-exists') {
@@ -302,15 +340,20 @@ class BookingsService {
         return;
       }
 
-      await FirebaseFirestore.instance
-          .collection('bookings')
-          .doc(booking.id)
-          .delete()
-          .timeout(const Duration(seconds: 15));
+      await _deleteBookingWithContact(booking.id);
       revision.value++;
     } finally {
       _cancelling.remove(booking.id);
     }
+  }
+
+  /// يحذف الحجز ومستند تواصله الخاص بدفعة وحدة — حتى ما تبقى أرقام
+  /// معلّقة بمستند فرعي بلا أب بعد الإلغاء
+  Future<void> _deleteBookingWithContact(String bookingId) {
+    final batch = FirebaseFirestore.instance.batch()
+      ..delete(_contactRef(bookingId))
+      ..delete(_bookingRef(bookingId));
+    return batch.commit().timeout(const Duration(seconds: 15));
   }
 
   /// عدد الحجوزات بالدفعة الوحدة
@@ -403,11 +446,7 @@ class BookingsService {
       return;
     }
 
-    await FirebaseFirestore.instance
-        .collection('bookings')
-        .doc(booking.id)
-        .delete()
-        .timeout(const Duration(seconds: 15));
+    await _deleteBookingWithContact(booking.id);
     revision.value++;
   }
 
@@ -484,7 +523,13 @@ class BookingsService {
       final byHour = a.hour.compareTo(b.hour);
       return upcoming ? byHour : -byHour;
     });
-    return list;
+
+    // اسم زبون الحجز اليدوي بمستنده الخاص — نجيبه للحجوزات اليدوية بس
+    // (الحجوزات الحقيقية ما نعرض بيها رقم، ورقم اللاعب ينجلب لحظة
+    // الإلغاء وحده). بأفضل جهد: فشله يعني اسم فاضي، مو شاشة مكسورة.
+    return Future.wait([
+      for (final b in list) b.isManual ? withContact(b) : Future.value(b),
+    ]);
   }
 
   /// إلغاء حجز — يحذف المستند فيتحرر الوقت للآخرين.
@@ -519,11 +564,7 @@ class BookingsService {
         // فشل السجل ما يوقف الإلغاء — الشارة بس تفوتها دقّة إضافية
       }
 
-      await FirebaseFirestore.instance
-          .collection('bookings')
-          .doc(booking.id)
-          .delete()
-          .timeout(const Duration(seconds: 15));
+      await _deleteBookingWithContact(booking.id);
       revision.value++;
     } finally {
       _cancelling.remove(booking.id);

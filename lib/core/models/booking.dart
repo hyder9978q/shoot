@@ -4,6 +4,12 @@ import 'field.dart';
 ///
 /// معرّف المستند: fieldId_date_hour — هذا يمنع حجز نفس الوقت مرتين:
 /// أول واحد يكتب المستند يفوز، والثاني ينرفض من قواعد الحماية.
+///
+/// المستند الرئيسي مقروء لأي مستخدم مسجّل (منه تنعرف الأوقات المحجوزة)،
+/// فما ينخزن بيه أي شي شخصي. بيانات التواصل (رقم اللاعب، واسم زبون
+/// الحجز اليدوي وملاحظته) تنخزن بمستند فرعي خاص
+/// bookings/{id}/private/contact ما يقراه غير صاحب الحجز وصاحب المنشأة —
+/// شوف [Booking.contactMap] و BookingsService.hydrateContacts.
 class Booking {
   const Booking({
     required this.id,
@@ -39,14 +45,38 @@ class Booking {
       date: (data['date'] as String?) ?? '',
       hour: (data['hour'] as num?)?.toInt() ?? 0,
       deposit: (data['deposit'] as num?)?.toInt() ?? 0,
-      userPhone: (data['userPhone'] as String?) ?? '',
       depositWaived: (data['depositWaived'] as bool?) ?? false,
       replacesCancellationId: (data['replacesCancellationId'] as String?) ?? '',
       isManual: (data['isManual'] as bool?) ?? false,
+      // حجوزات قديمة انكتبت قبل ما تنفصل بيانات التواصل بمستند خاص —
+      // نقراها منها حتى تضل شغالة. الحجوزات الجديدة ما بيها هذي
+      // الحقول أصلاً (قواعد Firestore ترفضها)، فتنقرأ فاضية وتنعبى من
+      // المستند الفرعي عبر [withContact].
+      userPhone: (data['userPhone'] as String?) ?? '',
       customerName: (data['customerName'] as String?) ?? '',
       note: (data['note'] as String?) ?? '',
     );
   }
+
+  /// نسخة من الحجز مع بيانات التواصل المقروءة من المستند الفرعي الخاص
+  Booking withContact(Map<String, dynamic> contact) => Booking(
+    id: id,
+    userId: userId,
+    fieldId: fieldId,
+    fieldName: fieldName,
+    area: area,
+    city: city,
+    sport: sport,
+    date: date,
+    hour: hour,
+    deposit: deposit,
+    userPhone: (contact['userPhone'] as String?) ?? '',
+    depositWaived: depositWaived,
+    replacesCancellationId: replacesCancellationId,
+    isManual: isManual,
+    customerName: (contact['customerName'] as String?) ?? '',
+    note: (contact['note'] as String?) ?? '',
+  );
 
   final String id;
   final String userId;
@@ -65,7 +95,9 @@ class Booking {
   /// العربون المدفوع بالدينار
   final int deposit;
 
-  /// رقم اللاعب — حتى صاحب الملعب يگدر يوصله بالواتساب لو اضطر يلغي
+  /// رقم اللاعب — حتى صاحب الملعب يگدر يوصله بالواتساب لو اضطر يلغي.
+  /// ما ينخزن بالمستند الرئيسي أبداً: مصدره المستند الفرعي الخاص
+  /// bookings/{id}/private/contact، فيبقى فارغ لين ما ينقرأ منه.
   final String userPhone;
 
   /// حجز بديل بعد إلغاء مو ذنب اللاعب → معفي من العربون ("محجوز مضمون")
@@ -79,10 +111,11 @@ class Booking {
   /// الملعب نفسه لو هو أيضاً لاعب بحساب ثاني)
   final bool isManual;
 
-  /// اسم الزبون — للحجز اليدوي بس
+  /// اسم الزبون — للحجز اليدوي بس. خاص مثل [userPhone]: مصدره المستند
+  /// الفرعي bookings/{id}/private/contact مو المستند الرئيسي.
   final String customerName;
 
-  /// ملاحظة صاحب الملعب على الحجز اليدوي (اختيارية)
+  /// ملاحظة صاحب الملعب على الحجز اليدوي (اختيارية) — خاصة مثلها
   final String note;
 
   /// حجز مضمون؟ (بديل عن إلغاء مو ذنب اللاعب)
@@ -98,10 +131,21 @@ class Booking {
     'date': date,
     'hour': hour,
     'deposit': deposit,
-    'userPhone': userPhone,
     'depositWaived': depositWaived,
     'replacesCancellationId': replacesCancellationId,
     'isManual': isManual,
+  };
+
+  /// بيانات التواصل الخاصة — تنكتب بالمستند الفرعي
+  /// bookings/{id}/private/contact وحده، مو بالمستند الرئيسي.
+  /// fieldId/date/hour منسوخة معها حتى تتحقق القواعد من هوية الحجز
+  /// وملكيته بدون ما تحتاج تقرأ المستند الأب.
+  Map<String, dynamic> get contactMap => {
+    'userId': userId,
+    'fieldId': fieldId,
+    'date': date,
+    'hour': hour,
+    'userPhone': userPhone,
     'customerName': customerName,
     'note': note,
   };

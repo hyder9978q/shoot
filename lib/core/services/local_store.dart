@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_mode.dart';
+
 /// خزن محلي خفيف (shared_preferences) — جلسة الدخول، الاسم، وتفضيل الوضع الليلي.
 ///
 /// كل العمليات تتجاهل الأخطاء بهدوء: بالاختبارات الآلية ما في plugin
@@ -23,8 +25,16 @@ class LocalStore {
   }
 
   /// هل عنده جلسة دخول محفوظة؟
-  static Future<bool> get signedIn async =>
-      (await _prefs)?.getBool(_kSignedIn) ?? false;
+  ///
+  /// معتمدة بوضع التجربة فقط ([AppMode.isMock]) — لأنها مجرد قيمة
+  /// محفوظة بجهاز المستخدم وما تثبت شي بالسيرفر. بالإنتاج الحكم الوحيد
+  /// هو حالة Firebase الحقيقية: لو انحذف الحساب أو انسحبت الجلسة
+  /// (من لوحة Firebase مثلاً) يطلع المستخدم فوراً لشاشة الدخول بدل ما
+  /// تبقى الجلسة سارية بجهازه على أساس علم محلي.
+  static Future<bool> get signedIn async {
+    if (!AppMode.isMock) return false;
+    return (await _prefs)?.getBool(_kSignedIn) ?? false;
+  }
 
   static Future<void> setSignedIn(bool value) async {
     await (await _prefs)?.setBool(_kSignedIn, value);

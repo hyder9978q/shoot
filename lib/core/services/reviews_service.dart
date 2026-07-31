@@ -116,11 +116,13 @@ class ReviewsService {
     required int rating,
     String comment = '',
   }) async {
-    final name = UserService.instance.name;
+    // الاسمين محدودين بـ٥٠ حرف بقواعد Firestore — نقصّهم هنا حتى ما
+    // ينرفض التقييم بسبب اسم منشأة قديم طويل (منشآت مسحوبة من الخرائط)
+    final name = InputSanitizer.clean(UserService.instance.name, maxLength: 50);
     final review = Review(
       id: '${field.id}_$_uid',
       fieldId: field.id,
-      fieldName: field.name,
+      fieldName: InputSanitizer.clean(field.name, maxLength: 50),
       userId: _uid,
       userName: name.isEmpty ? 'لاعب' : name,
       rating: rating.clamp(1, 5),

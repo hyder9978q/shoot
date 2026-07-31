@@ -148,6 +148,9 @@ class OwnerBookingActions {
     if (confirmed != true || !context.mounted) return;
 
     try {
+      // رقم اللاعب بمستنده الخاص — نجيبه قبل الإلغاء لأن المستند
+      // ينحذف مع الحجز، وبيه نرسل الاعتذار بالواتساب بعدها
+      final withPhone = await BookingsService.instance.withContact(booking);
       await CancellationsService.instance.cancelByOwner(
         field,
         booking,
@@ -157,7 +160,7 @@ class OwnerBookingActions {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text(AppStrings.ownerCancelDone)));
-      await _notifyPlayer(context, field, booking, reason);
+      await _notifyPlayer(context, field, withPhone, reason);
       onDone();
     } catch (_) {
       if (!context.mounted) return;

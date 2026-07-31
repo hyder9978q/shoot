@@ -2,12 +2,17 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-/// خدمة رفع وحذف الصور على Supabase Storage عبر REST مباشرة
+/// خدمة رفع الصور على Supabase Storage عبر REST مباشرة
 /// (بدون حزمة supabase_flutter — نحتاج التخزين فقط، والمصادقة تبقى Firebase).
 ///
 /// كل الـ buckets (field-photos, field-promos, field-highlights,
 /// player-photos, ad-images) عامة القراءة، بحد ٥ ميغا وأنواع صور فقط
 /// (مفروضة من السيرفر على مستوى الـ bucket نفسه).
+///
+/// الحذف مو موجود عمداً: مفتاح anon مضمّن بالتطبيق ويگدر أي شخص
+/// يستخرجه، فسياسة DELETE بالسيرفر تعني إن أي واحد يمحي صور كل
+/// الملاعب. بدالها التطبيق يشيل رابط الصورة من Firestore فقط —
+/// الصورة تختفي من كل الشاشات، وملفها يبقى بالتخزين بلا ضرر.
 class SupabaseStorageService {
   SupabaseStorageService._();
 
@@ -43,21 +48,4 @@ class SupabaseStorageService {
   /// هل الرابط تابع لتخزين مشروعنا؟
   static bool ownsUrl(String url) =>
       url.startsWith('$_projectUrl/storage/v1/object/public/');
-
-  /// يحذف ملفاً برابطه العام — يرمي استثناء لو الرابط مو تابع للمشروع
-  static Future<void> deleteByUrl(String url) async {
-    const marker = '/storage/v1/object/public/';
-    final i = url.indexOf(marker);
-    if (!ownsUrl(url) || i == -1) {
-      throw ArgumentError('رابط مو تابع لتخزين Supabase حق التطبيق');
-    }
-    final bucketAndPath = url.substring(i + marker.length);
-    final uri = Uri.parse('$_projectUrl/storage/v1/object/$bucketAndPath');
-    final res = await http
-        .delete(uri, headers: _headers('application/json'))
-        .timeout(const Duration(seconds: 15));
-    if (res.statusCode != 200) {
-      throw StateError('فشل حذف الصورة (${res.statusCode})');
-    }
-  }
 }

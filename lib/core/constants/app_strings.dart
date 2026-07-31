@@ -784,4 +784,21 @@ class AppStrings {
   static const String adminFirstSuggestedBy = 'أول من اقترحه';
   static const String adminRequestCountUnit = 'طلب';
   static const String adminChangeStatusAction = 'غيّر الحالة';
+
+  // مراجعة المنشآت الجديدة — للمسؤول فقط
+  static const String adminPendingVenuesTitle = 'منشآت بانتظار المراجعة';
+  static const String adminPendingVenuesSubtitle =
+      'منشآت سجّلها أصحابها توّه — تفعيلها يخليها تبين للاعبين وتنحجز';
+  static const String adminNoPendingVenues = 'ماكو منشآت تنتظر المراجعة ✅';
+  static const String adminActivateVenueAction = 'فعّل المنشأة';
+  static const String adminVenueActivated = 'انفعّلت المنشأة، صارت تبين ✅';
+  static const String adminVenueActivateError =
+      'ما گدرنا نفعّل المنشأة 😕 جرّب مرة ثانية';
+  static const String adminVenueOwnerPhone = 'رقم تواصل المنشأة';
+
+  // شارة صاحب المنشأة — منشأته بعدها ما انفعّلت
+  static const String venuePendingBadge = 'بانتظار المراجعة';
+  static const String venuePendingNote =
+      'منشأتك بانتظار مراجعة الإدارة — ما تبين للاعبين ولا تنحجز لحد ما '
+      'تنفعّل. تگدر تكمّل معلوماتك وصورك من هسه.';
 }

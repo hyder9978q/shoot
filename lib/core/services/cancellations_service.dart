@@ -70,7 +70,6 @@ class CancellationsService {
     final record = Cancellation(
       id: booking.id,
       playerId: booking.userId,
-      playerPhone: booking.userPhone,
       fieldId: field.id,
       fieldName: field.name,
       ownerId: field.ownerId,

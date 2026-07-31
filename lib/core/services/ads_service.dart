@@ -209,19 +209,10 @@ class AdsService {
     );
   }
 
-  /// حذف ملف صورة إعلان من Storage — بأفضل جهد (فشله ما يكسر العملية)
-  Future<void> _deleteImage(String url) async {
-    if (url.isEmpty) return;
-    try {
-      await SupabaseStorageService.deleteByUrl(url);
-    } catch (_) {}
-  }
-
-  /// حذف إعلان مع صورته (إذا عنده وحدة)
-  Future<void> deleteAdWithImage(Ad ad) async {
-    await deleteAd(ad);
-    await _deleteImage(ad.imageUrl);
-  }
+  /// حذف إعلان — مستنده ينحذف من Firestore فيختفي الإعلان وصورته من
+  /// كل الشاشات. ملف الصورة نفسه يبقى بتخزين Supabase (ما عدنا سياسة
+  /// حذف بمفتاح anon عمداً — شوف [SupabaseStorageService]).
+  Future<void> deleteAdWithImage(Ad ad) => deleteAd(ad);
 
   /// كل إعلانات صاحب المنشأة عبر منشآته (نشيطة وموقوفة ومنتهية) — لشاشة
   /// "إعلاناتي" يديرها منها. الأحدث أولاً.

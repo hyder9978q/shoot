@@ -20,6 +20,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/utils/arabic_num.dart';
 import '../../core/widgets/pressable.dart';
+import '../admin/screens/admin_pending_venues_screen.dart';
 import '../admin/screens/admin_venue_suggestions_screen.dart';
 import '../auth/screens/login_screen.dart';
 import '../bookings/screens/bookings_tab.dart';
@@ -418,7 +419,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                       ),
                       // لوحة إدارة اقتراحات الملاعب — تظهر فقط لحساب
                       // المسؤول (قائمة adminUids بملف admin_config.dart)
-                      if (AdminConfig.isCurrentUserAdmin)
+                      if (AdminConfig.isCurrentUserAdmin) ...[
                         _ProfileItem(
                           icon: Icons.admin_panel_settings_rounded,
                           label: AppStrings.adminSuggestionsItem,
@@ -431,6 +432,21 @@ class _ProfileTabState extends State<_ProfileTab> {
                             );
                           },
                         ),
+                        // مراجعة المنشآت الجديدة — كل منشأة يسجّلها
+                        // صاحبها تبقى معطّلة لين يفعّلها المسؤول من هنا
+                        _ProfileItem(
+                          icon: Icons.fact_check_rounded,
+                          label: AppStrings.adminPendingVenuesTitle,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminPendingVenuesScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                       // مفتاح الوضع الليلي
                       _ProfileItem(
                         icon: ThemeController.instance.isDark.value

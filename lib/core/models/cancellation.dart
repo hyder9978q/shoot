@@ -10,7 +10,6 @@ class Cancellation {
   const Cancellation({
     required this.id,
     required this.playerId,
-    required this.playerPhone,
     required this.fieldId,
     required this.fieldName,
     required this.ownerId,
@@ -32,7 +31,6 @@ class Cancellation {
     return Cancellation(
       id: id,
       playerId: (data['playerId'] as String?) ?? '',
-      playerPhone: (data['playerPhone'] as String?) ?? '',
       fieldId: (data['fieldId'] as String?) ?? '',
       fieldName: (data['fieldName'] as String?) ?? '',
       ownerId: (data['ownerId'] as String?) ?? '',
@@ -59,7 +57,6 @@ class Cancellation {
 
   /// اللاعب المتضرر
   final String playerId;
-  final String playerPhone;
 
   final String fieldId;
   final String fieldName;
@@ -95,7 +92,6 @@ class Cancellation {
 
   Map<String, dynamic> toMap() => {
         'playerId': playerId,
-        'playerPhone': playerPhone,
         'fieldId': fieldId,
         'fieldName': fieldName,
         'ownerId': ownerId,
@@ -116,7 +112,6 @@ class Cancellation {
   Cancellation copyWith({bool? seen, bool? compensated}) => Cancellation(
         id: id,
         playerId: playerId,
-        playerPhone: playerPhone,
         fieldId: fieldId,
         fieldName: fieldName,
         ownerId: ownerId,
